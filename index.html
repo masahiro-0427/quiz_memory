@@ -1,0 +1,3437 @@
+<!DOCTYPE html>
+<!--
+  CONNECT — 線でつなぐフラッシュカード学習アプリ（完成版 v1.0）
+  データはブラウザの localStorage に自動保存。JSONでバックアップ/復元可。
+
+  主な機能:
+   ・マッチング出題  … カードを線でつなぎ正解セットを作る
+   ・ランダム出題     … デッキから5/10/20問を抽選（正解が場にない問題も混ぜる）
+   ・並べ替えデッキ   … 正しい順番に並べ替えて覚える
+   ・かんたん一括作成 … テキスト貼り付けでデッキ生成、既存デッキの一括編集
+   ・セット管理       … セット名の付与・メンバー俯瞰・解除
+   ・カード編集       … 名前/補足/画像/読み方(読み上げ用)を個別編集
+   ・読み上げ         … 英日自動判定＋良質ボイス選択＋混在分割
+   ・クリア記録       … 全問正解した日だけ日付を記録（間違いは非記録）
+   ・バックアップ     … 全デッキをJSONで書き出し/復元、デッキ単位CSV書き出し
+-->
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CONNECT</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ─────────────────────────────── */
+:root {
+  --bg:      #f4f5f7;
+  --surface: #ffffff;
+  --surf2:   #f0f1f4;
+  --border:  #e0e2ea;
+  --border2: #c8cad6;
+  --accent:  #3b5bdb;
+  --accent2: #eef1fd;
+  --text:    #1a1d2e;
+  --muted:   #8890a8;
+  --ok:      #2f9e44;
+  --ok-bg:   #ebfbee;
+  --ng:      #e03131;
+  --ng-bg:   #fff5f5;
+  --quiz-c:  #1971c2;
+  --setup-c: #e67700;
+  --card-w:  168px;
+  --shadow:  0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.05);
+  --shadow-lg: 0 4px 24px rgba(0,0,0,.12);
+}
+
+/* ── RESET ──────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Noto Serif JP', serif;
+  min-height: 100vh; overflow-x: hidden;
+}
+
+/* ── PAGE SYSTEM ─────────────────────────── */
+.page { display: none; min-height: 100vh; }
+.page.active { display: block; }
+
+/* ── SHARED BUTTONS ──────────────────────── */
+.btn {
+  font-family: 'Space Mono', monospace; font-size: 10px;
+  letter-spacing: .5px; padding: 8px 14px; cursor: pointer;
+  border: 1.5px solid var(--border2); background: var(--surface);
+  color: var(--muted); transition: all .18s; text-transform: uppercase;
+  white-space: nowrap; border-radius: 4px;
+}
+.btn:hover          { border-color: var(--accent); color: var(--accent); background: var(--accent2); }
+.btn:active         { opacity: .85; }
+.btn.b-ok           { border-color: var(--accent); color: var(--accent); background: var(--accent2); }
+.btn.b-ok:hover     { background: #dce4ff; }
+.btn.b-setup        { border-color: var(--setup-c); color: var(--setup-c); background: #fff8ed; }
+.btn.b-quiz         { border-color: var(--quiz-c);  color: var(--quiz-c);  background: #e7f5ff; }
+.btn.b-check        { border-color: var(--ok); color: var(--ok); background: var(--ok-bg); }
+.btn.b-danger       { border-color: var(--border2); color: var(--muted); background: var(--surface); }
+.btn.b-danger:hover { border-color: var(--ng); color: var(--ng); background: var(--ng-bg); }
+.btn.speaking       { border-color: var(--quiz-c); color: var(--quiz-c); animation: pulse .8s infinite; }
+
+/* ── SHARED ANIMATIONS ───────────────────── */
+@keyframes fadeUp  { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+@keyframes fadeIn  { from { opacity:0; transform:translateY(4px);  } to { opacity:1; transform:none; } }
+@keyframes popIn   { 0%   { transform:scale(.7); opacity:0; } 100% { transform:scale(1); opacity:1; } }
+@keyframes pulse   { 0%,100% { box-shadow:0 0 0 0 rgba(25,113,194,.3); } 50% { box-shadow:0 0 0 5px transparent; } }
+@keyframes slideUp { from { transform:translateY(40px); opacity:0; } to { transform:none; opacity:1; } }
+@keyframes fabIn   { from { opacity:0; transform:translateX(-50%) translateY(12px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
+/* ═══════════════════════════════════════
+   PAGE 1 — COVER
+═══════════════════════════════════════ */
+#page-cover {
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; padding: 48px 24px;
+  position: relative; overflow: hidden;
+  background: linear-gradient(145deg, #f8f9ff 0%, #eef1fd 50%, #f4f5f7 100%);
+}
+#page-cover.active { display: flex; }
+#page-cover::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px; opacity: .4;
+}
+.cover-eyebrow { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:4px; color:var(--muted); margin-bottom:20px; animation:fadeUp .6s ease .1s both; text-transform:uppercase; }
+.cover-title   { font-family:'Bebas Neue',sans-serif; font-size:clamp(72px,18vw,120px); letter-spacing:8px; color:var(--accent); line-height:.95; animation:fadeUp .6s ease .2s both; }
+.cover-sub     { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:3px; color:var(--muted); margin-top:16px; text-align:center; animation:fadeUp .6s ease .3s both; }
+.cover-desc    { max-width:360px; text-align:center; font-size:14px; line-height:2; color:var(--muted); margin-top:28px; animation:fadeUp .6s ease .4s both; }
+.cover-cta     { margin-top:44px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center; animation:fadeUp .6s ease .5s both; }
+.cta-btn       { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:1px; padding:14px 32px; cursor:pointer; border:1.5px solid; text-transform:uppercase; transition:all .2s; border-radius:4px; }
+.cta-primary   { border-color:var(--accent); color:#fff; background:var(--accent); }
+.cta-primary:hover  { background:#2f4dbf; transform:translateY(-2px); box-shadow:0 8px 24px rgba(59,91,219,.25); }
+.cta-secondary { border-color:var(--border2); color:var(--muted); background:var(--surface); }
+.cta-secondary:hover { border-color:var(--accent); color:var(--accent); }
+.cover-features { margin-top:56px; display:flex; gap:32px; flex-wrap:wrap; justify-content:center; animation:fadeUp .6s ease .6s both; }
+.feature        { display:flex; flex-direction:column; align-items:center; gap:8px; max-width:90px; text-align:center; }
+.feature-icon   { font-size:24px; }
+.feature-label  { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; color:var(--muted); }
+.cover-footer   { position:absolute; bottom:20px; font-family:'Space Mono',monospace; font-size:9px; color:var(--border2); letter-spacing:2px; animation:fadeUp .6s ease .7s both; }
+
+/* ═══════════════════════════════════════
+   PAGE 2 — DECK LIST
+═══════════════════════════════════════ */
+#page-decks.active { display: block; }
+
+.topnav {
+  padding: 14px 28px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+  background: var(--surface); position: sticky; top: 0; z-index: 20; flex-wrap: wrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.nav-logo     { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:4px; color:var(--accent); cursor:pointer; line-height:1; }
+.nav-subtitle { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:3px; color:var(--muted); }
+.nav-right    { margin-left:auto; display:flex; gap:7px; align-items:center; flex-wrap:wrap; }
+
+.decks-hero   { padding:32px 28px 22px; border-bottom:1px solid var(--border); background:var(--surface); }
+.decks-hero h2 { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:3px; line-height:1; color:var(--text); }
+.decks-hero p  { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-top:6px; letter-spacing:1px; }
+.decks-body    { padding:24px 28px; }
+.decks-grid    { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:16px; }
+
+.deck-card     { background:var(--surface); border:1px solid var(--border); cursor:pointer; transition:all .2s; overflow:hidden; animation:fadeIn .2s ease; border-radius:8px; box-shadow:var(--shadow); }
+.deck-card:hover { border-color:var(--accent); transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+.deck-accent   { height:5px; width:100%; }
+.deck-card-body { padding:16px 18px 12px; }
+.deck-card-name { font-size:15px; font-weight:700; line-height:1.3; word-break:break-all; color:var(--text); }
+.deck-card-desc { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-top:5px; }
+.deck-stats    { display:flex; gap:14px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+.dstat         { display:flex; flex-direction:column; gap:2px; }
+.ro-clear-note { font-family:'Space Mono',monospace; font-size:12px; color:var(--ok); background:var(--ok-bg); border:1px solid var(--ok); border-radius:8px; padding:10px 14px; margin-bottom:20px; text-align:center; letter-spacing:.5px; }
+.clear-hist    { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:16px; box-shadow:var(--shadow); }
+.clear-hist-hdr { font-family:'Space Mono',monospace; font-size:11px; color:var(--ok); letter-spacing:1px; margin-bottom:8px; }
+.clear-hist-list { display:flex; flex-wrap:wrap; gap:5px; }
+.clear-chip    { font-family:'Space Mono',monospace; font-size:11px; padding:3px 8px; background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok); border-radius:5px; white-space:nowrap; }
+.dstat-num     { font-family:'Bebas Neue',sans-serif; font-size:22px; line-height:1; color:var(--text); }
+.dstat-num.s-ok { color:var(--ok); }
+.dstat-label   { font-family:'Space Mono',monospace; font-size:7px; color:var(--muted); letter-spacing:1px; }
+.deck-actions  { display:flex; border-top:1px solid var(--border); }
+.deck-act      { flex:1; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.5px; padding:10px 6px; cursor:pointer; border:none; border-right:1px solid var(--border); background:transparent; color:var(--muted); transition:all .2s; text-transform:uppercase; }
+.deck-act:last-child { border-right:none; }
+.deck-act:hover { background:var(--surf2); color:var(--accent); }
+.deck-act.del:hover { color:var(--ng); background:var(--ng-bg); }
+.new-deck-btn  { background:var(--surface); border:1.5px dashed var(--border2); padding:36px 18px; cursor:pointer; transition:all .2s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; min-height:160px; border-radius:8px; }
+.new-deck-btn:hover { border-color:var(--accent); background:var(--accent2); }
+.new-deck-btn:hover .new-deck-icon { color:var(--accent); }
+.new-deck-icon  { font-size:28px; color:var(--border2); transition:color .2s; }
+.new-deck-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); }
+
+/* Deck detail table */
+.deck-table    { width:100%; border-collapse:collapse; background:var(--surface); border-radius:8px; overflow:hidden; box-shadow:var(--shadow); }
+.deck-table th { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); padding:10px 12px; border-bottom:2px solid var(--border); text-align:left; background:var(--surf2); }
+.deck-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
+.deck-table tr:last-child td { border-bottom:none; }
+.deck-table tr:hover td { background:var(--surf2); }
+.color-chip    { display:inline-flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:9px; border-left:3px solid transparent; padding:2px 7px; border-radius:2px; }
+.td-muted      { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); }
+.td-btn        { font-size:11px; padding:4px 9px; border:1px solid var(--border); border-radius:6px; background:var(--surface); color:var(--text); cursor:pointer; white-space:nowrap; transition:all .12s; }
+.td-btn:hover  { border-color:var(--accent); color:var(--accent); background:var(--accent2); }
+.td-btn.del:hover { border-color:var(--ng); color:var(--ng); background:var(--ng-bg); }
+.setmgr        { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:16px; box-shadow:var(--shadow); }
+.setmgr-hdr    { display:flex; align-items:center; justify-content:space-between; font-family:'Bebas Neue',sans-serif; font-size:15px; letter-spacing:2px; color:var(--accent); margin-bottom:10px; }
+.setmgr-count  { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.setmgr-row    { display:flex; align-items:center; gap:8px; padding:7px 0; border-top:1px solid var(--border); flex-wrap:wrap; }
+.setmgr-name   { flex:0 0 130px; font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--text); }
+.setmgr-name:focus { border-color:var(--accent); outline:none; }
+.setmgr-chips  { flex:1 1 200px; display:flex; flex-wrap:wrap; gap:5px; min-width:0; }
+.setmgr-chip   { font-size:11px; padding:3px 8px; background:var(--surf2); border-radius:5px; color:var(--text); white-space:nowrap; }
+.setmgr-chip b { color:var(--muted); font-weight:700; font-size:9px; margin-right:3px; }
+
+/* ═══════════════════════════════════════
+   PAGE 3 — QUIZ
+═══════════════════════════════════════ */
+#page-order.active { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+.order-list   { max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:8px; }
+.order-item   { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow); transition:border-color .15s, transform .1s; }
+.order-item.dragging { opacity:.5; border-color:var(--accent); }
+.order-item.dragover  { border-color:var(--accent); border-style:dashed; }
+.order-pos    { flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--surf2); color:var(--muted); font-family:'Space Mono',monospace; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.order-name   { flex:1; font-size:14px; font-weight:700; min-width:0; word-break:break-word; }
+.order-name small { display:block; font-weight:400; font-size:11px; color:var(--muted); margin-top:2px; }
+.order-moves  { display:flex; flex-direction:column; gap:2px; flex-shrink:0; }
+.order-move   { width:30px; height:22px; border:1px solid var(--border); border-radius:5px; background:var(--surface); color:var(--text); cursor:pointer; font-size:11px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.order-move:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); background:var(--accent2); }
+.order-move:disabled { opacity:.3; cursor:default; }
+.order-grip   { flex-shrink:0; color:var(--muted); cursor:grab; font-size:15px; padding:0 2px; }
+.order-item.ok  { border-color:var(--ok); background:var(--ok-bg); }
+.order-item.ng  { border-color:var(--ng); background:var(--ng-bg); }
+.order-correct  { flex-shrink:0; font-family:'Space Mono',monospace; font-size:10px; color:var(--ng); white-space:nowrap; }
+.order-scorebar { max-width:640px; margin:0 auto 14px; text-align:center; font-family:'Bebas Neue',sans-serif; letter-spacing:2px; font-size:20px; }
+
+.quiz-topnav {
+  padding: 12px 28px; border-bottom: 1px solid var(--border);
+  background: var(--surface); z-index: 20; flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.quiz-deck-name { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:var(--accent); line-height:1; }
+.mode-badge     { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1px; padding:4px 10px; border:1.5px solid; text-transform:uppercase; border-radius:20px; }
+.mode-badge.setup  { border-color:var(--setup-c); color:var(--setup-c); background:#fff8ed; }
+.mode-badge.quiz   { border-color:var(--quiz-c);  color:var(--quiz-c);  background:#e7f5ff; }
+.mode-badge.result { border-color:var(--ok);      color:var(--ok);      background:var(--ok-bg); }
+
+/* Palette bar */
+.pbar        { padding:10px 28px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-shrink:0; }
+.plabel      { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; white-space:nowrap; }
+.psep        { width:1px; height:26px; background:var(--border); flex-shrink:0; }
+.status-pill { display:flex; align-items:center; gap:6px; background:var(--surf2); border:1px solid var(--border); padding:5px 11px; font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); border-radius:20px; }
+.sdot        { width:9px; height:9px; border-radius:50%; flex-shrink:0; transition:background .2s; }
+
+/* Canvas */
+.canvas-wrap { padding:28px 28px 40px; overflow:auto; flex:1 1 auto; min-height:0; }
+.columns     { display:flex; gap:20px; align-items:flex-start; position:relative; }
+.card.selected { outline:2px solid var(--quiz-c, #6c5ce7); outline-offset:2px; box-shadow:0 0 0 4px rgba(108,92,231,.12); }
+.column      { display:flex; flex-direction:column; min-width:var(--card-w); }
+.col-hdr     { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:10px; padding-bottom:8px; border-bottom:2px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.col-hdr-label { flex:1; }
+.col-hdr-label.editable { cursor:pointer; padding:2px 6px 2px 2px; border-radius:3px; transition:background .15s, color .15s; }
+.col-hdr-label.editable:hover { background:var(--accent2); color:var(--accent); }
+.col-hdr-label.editable::after { content:'✎'; font-size:8px; color:var(--muted); margin-left:4px; opacity:0; transition:opacity .15s; }
+.col-hdr-label.editable:hover::after { opacity:1; }
+.col-add     { cursor:pointer; color:var(--accent); font-size:14px; opacity:.6; transition:opacity .2s; flex-shrink:0; }
+.col-add:hover { opacity:1; }
+.cards       { display:flex; flex-direction:column; gap:8px; }
+.cards.cards-grid { display:grid; grid-auto-flow:column; grid-auto-columns:var(--card-w); column-gap:16px; row-gap:8px; align-items:start; }
+
+/* Card */
+.card {
+  width:var(--card-w); background:var(--surface);
+  border:1.5px solid var(--border); border-left-width:5px;
+  cursor:pointer; transition:all .18s;
+  position:relative; user-select:none; border-radius:6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.card:hover { background:var(--surf2); box-shadow:0 3px 12px rgba(0,0,0,.1); transform:translateY(-1px); }
+.card-body  { padding:10px 44px 10px 11px; }
+.card-img   { display:block; width:100%; max-height:110px; object-fit:contain; border-radius:5px; margin-bottom:6px; background:var(--surf2); }
+.card-name  { font-size:12px; font-weight:700; line-height:1.5; word-break:break-all; color:var(--text); }
+.card-sub   { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); margin-top:2px; }
+.card-nomatch-btn { display:block; width:calc(100% - 22px); margin:0 11px 9px; padding:4px 0; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.5px; color:var(--muted); background:transparent; border:1px dashed var(--border2); border-radius:5px; cursor:pointer; transition:all .12s; }
+.card-nomatch-btn:hover { border-color:var(--muted); color:var(--text); }
+.card-nomatch-btn.on { color:#fff; background:var(--muted); border-style:solid; border-color:var(--muted); }
+.card.nomatch { opacity:.72; border-left-color:var(--border2) !important; background:var(--surf2); }
+.card.nomatch .card-name { text-decoration:line-through; text-decoration-color:var(--border2); }
+.card-icons { position:absolute; top:50%; right:6px; transform:translateY(-50%); display:flex; flex-direction:column; gap:3px; align-items:center; }
+.card-icon  { font-size:11px; color:var(--muted); cursor:pointer; opacity:0; transition:all .15s; line-height:1; padding:2px; border-radius:3px; }
+.card:hover .card-icon { opacity:1; }
+.card-icon:hover { color:var(--accent); background:var(--accent2); }
+.card-icon.del:hover { color:var(--ng); background:var(--ng-bg); }
+@media (hover:none) { .card-icon { opacity:.7; } }
+
+/* Card result states */
+.card.correct { border-color:var(--ok) !important; background:var(--ok-bg) !important; box-shadow:0 0 0 2px rgba(47,158,68,.15); }
+.card.wrong   { border-color:var(--ng) !important; background:var(--ng-bg) !important; box-shadow:0 0 0 2px rgba(224,49,49,.12); }
+.card.unanswered { opacity:.38; }
+.card-result-icon { position:absolute; top:6px; right:6px; font-size:13px; line-height:1; display:none; }
+.card.correct .card-result-icon,
+.card.wrong   .card-result-icon { display:block; animation:popIn .2s ease; }
+.card.correct .card-result-icon::before { content:'✓'; color:var(--ok); font-weight:bold; }
+.card.wrong   .card-result-icon::before { content:'✗'; color:var(--ng); font-weight:bold; }
+.card-correct-hint { padding:2px 10px 7px; font-family:'Space Mono',monospace; font-size:9px; border-top:1px solid var(--border); color:var(--ok); }
+.card.lit { outline:2px solid var(--lit-c,#3b5bdb); box-shadow:0 0 14px var(--lit-glow,rgba(59,91,219,.2)); }
+
+.add-col-btn { align-self:flex-start; width:44px; height:44px; border:1.5px dashed var(--border2); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--muted); cursor:pointer; transition:all .2s; margin-top:26px; border-radius:6px; }
+.add-col-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent2); }
+
+/* Connection panel */
+.cpanel           { border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; display:flex; flex-direction:column; max-height:42vh; }
+.cpanel-hdr       { padding:12px 28px; display:flex; align-items:center; gap:11px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; flex-shrink:0; }
+.cpanel-hdr:hover { background:var(--surf2); }
+.cpanel-title     { font-family:'Bebas Neue',sans-serif; font-size:17px; letter-spacing:3px; color:var(--accent); }
+.cpanel-meta      { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); }
+.cpanel-toggle    { margin-left:auto; color:var(--muted); transition:transform .25s; font-size:11px; }
+.cpanel.open .cpanel-toggle { transform:rotate(180deg); }
+.cpanel-body      { display:none; padding:0 28px 24px; overflow-y:auto; min-height:0; }
+.cpanel.open .cpanel-body { display:block; flex:1 1 auto; }
+.list-empty       { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); padding:20px 0; }
+.cgroup           { margin-top:16px; }
+.cg-hdr           { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); margin-bottom:8px; }
+.cg-dot           { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.cg-name          { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:1px; font-weight:bold; color:var(--text); }
+.cg-count         { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); }
+.cg-speak         { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); cursor:pointer; margin-left:4px; transition:color .15s; }
+.cg-speak:hover, .cg-speak.speaking { color:var(--quiz-c); }
+.cg-clear         { margin-left:auto; font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); cursor:pointer; transition:color .15s; }
+.cg-clear:hover   { color:var(--ng); }
+.cg-cards         { display:flex; flex-wrap:wrap; gap:6px; padding:2px 0; }
+.cg-chip          { display:flex; flex-direction:column; background:var(--surf2); border-left:4px solid transparent; padding:6px 12px; cursor:pointer; transition:background .15s; border-radius:4px; }
+.cg-chip:hover    { background:var(--accent2); }
+.cg-chip-name     { font-size:12px; font-weight:700; line-height:1.3; color:var(--text); }
+.cg-chip-col      { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); margin-top:1px; }
+
+/* ═══════════════════════════════════════
+   OVERLAYS
+═══════════════════════════════════════ */
+.overlay {
+  position:fixed; inset:0; background:rgba(26,29,46,.4);
+  z-index:300; align-items:center; justify-content:center;
+  backdrop-filter:blur(4px); display:none;
+  padding:16px; box-sizing:border-box; overflow-y:auto;
+}
+.overlay.show { display:flex; }
+.sync-ind { position:fixed; right:12px; bottom:12px; z-index:280; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.5px; padding:5px 10px; border-radius:20px; cursor:pointer; user-select:none; box-shadow:0 2px 8px rgba(0,0,0,.15); transition:all .15s; border:1px solid transparent; }
+.sync-ind.on  { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); }
+.sync-ind.off { background:var(--surface); color:var(--muted); border-color:var(--border); }
+.sync-ind:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.2); }
+.dialog       { background:var(--surface); border:1px solid var(--border); padding:28px; width:min(340px,calc(100vw - 32px)); border-radius:10px; box-shadow:var(--shadow-lg); max-height:calc(100dvh - 32px); overflow-y:auto; }
+.dialog h3    { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--accent); letter-spacing:2px; margin-bottom:14px; }
+.dialog input { width:100%; background:var(--surf2); border:1.5px solid var(--border); color:var(--text); padding:10px 12px; font-family:'Noto Serif JP',serif; font-size:13px; outline:none; margin-bottom:8px; transition:border-color .2s; border-radius:5px; }
+.dialog input:focus { border-color:var(--accent); background:var(--surface); }
+.dialog input::placeholder { color:var(--muted); }
+.dialog-btns  { display:flex; gap:8px; margin-top:6px; flex-wrap:wrap; position:sticky; bottom:-28px; background:var(--surface); padding:10px 0 0; margin-bottom:-4px; }
+
+/* Custom modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(26,29,46,.4); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); padding:20px; }
+.modal-overlay.show { display:flex; }
+.modal-box     { background:var(--surface); border:1px solid var(--border); padding:28px 24px; width:min(360px,100%); border-radius:10px; box-shadow:var(--shadow-lg); }
+.modal-title   { font-family:'Bebas Neue',sans-serif; font-size:20px; color:var(--text); letter-spacing:1px; margin-bottom:10px; }
+.modal-body    { font-size:13px; line-height:1.9; color:var(--muted); margin-bottom:20px; }
+.modal-btns    { display:flex; gap:8px; flex-wrap:wrap; }
+.modal-btn     { font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.5px; padding:12px 16px; cursor:pointer; border:1.5px solid; text-transform:uppercase; transition:all .2s; flex:1; text-align:center; border-radius:5px; }
+.modal-btn.primary   { border-color:var(--accent); color:#fff; background:var(--accent); }
+.modal-btn.primary:hover { background:#2f4dbf; }
+.modal-btn.secondary { border-color:var(--border2); color:var(--muted); background:var(--surface); }
+.modal-btn.secondary:hover { border-color:var(--text); color:var(--text); }
+
+/* Result overlay */
+.result-overlay {
+  position:fixed; inset:0; z-index:150;
+  background:var(--bg); display:none; flex-direction:column;
+}
+.result-overlay.show { display:flex; animation:slideUp .3s ease; }
+.ro-header    { padding:20px 28px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; flex-wrap:wrap; background:var(--surface); flex-shrink:0; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+.ro-title     { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:4px; color:var(--accent); }
+.ro-score-big { font-family:'Bebas Neue',sans-serif; font-size:44px; line-height:1; margin-left:auto; color:var(--text); }
+.ro-score-big .s-ok { color:var(--ok); }
+.ro-score-big .s-sl { color:var(--muted); font-size:28px; }
+.ro-pct       { font-family:'Bebas Neue',sans-serif; font-size:44px; color:var(--accent); line-height:1; }
+.ro-body      { padding:24px 28px; flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+.ro-body-inner { max-width:860px; }
+.ro-section-title { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:14px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+.ro-group     { margin-bottom:12px; border:1px solid var(--border); overflow:hidden; animation:fadeIn .2s ease; border-radius:8px; box-shadow:var(--shadow); }
+.ro-group-hdr { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surf2); }
+.ro-color-bar { width:6px; height:36px; border-radius:3px; flex-shrink:0; }
+.ro-group-name  { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:2px; line-height:1; color:var(--text); }
+.ro-group-score { font-family:'Space Mono',monospace; font-size:10px; margin-left:auto; }
+.ro-cards       { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; background:var(--surface); }
+.ro-card        { display:flex; flex-direction:column; gap:3px; padding:9px 14px; border-left:4px solid transparent; background:var(--surf2); min-width:120px; border-radius:5px; }
+.ro-card-name   { font-size:13px; font-weight:700; line-height:1.3; color:var(--text); }
+.ro-card-col    { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); }
+.ro-card-verdict { font-family:'Space Mono',monospace; font-size:9px; margin-top:3px; }
+.ro-wrongs      { margin-top:24px; }
+.ro-wrong-sec   { background:var(--surface); padding:4px 0 10px; }
+.ro-wrong-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1.5px; padding:10px 16px 2px; }
+.ro-wrong-empty { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); padding:4px 16px 8px; }
+.ro-footer      { padding:20px 28px; border-top:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; background:var(--surface); flex-shrink:0; box-shadow:0 -1px 4px rgba(0,0,0,.06); }
+
+/* FAB */
+.fab { display:none; position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:100; font-family:'Space Mono',monospace; font-size:12px; letter-spacing:1px; text-transform:uppercase; padding:14px 36px; cursor:pointer; border:none; transition:all .2s; white-space:nowrap; border-radius:50px; }
+.fab.show { display:block; animation:fabIn .25s ease; }
+.fab.quiz-fab { color:#fff; background:var(--ok); box-shadow:0 4px 20px rgba(47,158,68,.35); }
+.fab.quiz-fab:hover { background:#267035; transform:translateX(-50%) translateY(-2px); box-shadow:0 6px 28px rgba(47,158,68,.4); }
+
+/* Mobile bottom bar */
+.mobile-bar {
+  display:none; position:fixed; bottom:0; left:0; right:0; z-index:50;
+  background:var(--surface); border-top:1px solid var(--border);
+  padding:10px 14px; flex-direction:column; gap:8px;
+  box-shadow:0 -2px 16px rgba(0,0,0,.1);
+}
+.mobile-bar.show     { display:flex; }
+@media (min-width:601px) { .mobile-bar, .mobile-bar.show { display:none !important; } }
+.mobile-bar-palette  { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.mobile-check-btn    { width:100%; font-family:'Space Mono',monospace; font-size:13px; letter-spacing:1px; padding:13px 14px; cursor:pointer; border:none; color:#fff; background:var(--ok); text-transform:uppercase; transition:all .2s; border-radius:6px; font-weight:bold; }
+.mobile-check-btn:active { background:#267035; }
+
+/* ═══════════════════════════════════════
+   MOBILE OVERRIDES (≤ 600px)
+═══════════════════════════════════════ */
+@media (max-width:600px) {
+  #page-quiz.active { display:block; height:auto; min-height:100vh; overflow:visible; }
+  .overlay { padding:10px; align-items:flex-start; }
+  .dialog  { padding:18px; width:calc(100vw - 20px); max-height:calc(100dvh - 20px); }
+  .dialog-btns { bottom:-18px; }
+  .topnav, .quiz-topnav { padding:11px 14px; gap:8px; }
+  .quiz-topnav { position:sticky; top:0; }
+  .canvas-wrap { flex:none; overflow:visible; min-height:0; padding:16px 14px 140px; }
+  .cpanel { max-height:none; display:block; }
+  .cpanel-body { overflow-y:visible; }
+  .decks-hero  { padding:20px 14px 16px; }
+  .decks-body  { padding:16px 14px; }
+  .decks-grid  { grid-template-columns:1fr 1fr; gap:10px; }
+  .btn         { font-size:9px; padding:7px 9px; }
+  .pbar { display:none !important; }
+  .canvas-wrap { padding:0; overflow-x:visible; padding-bottom:110px !important; }
+  .columns     { flex-direction:column; gap:0; align-items:stretch; }
+  .column      { min-width:0; }
+  .col-section { border-bottom:1px solid var(--border); }
+  .col-hdr     { padding:12px 16px; margin-bottom:0; background:var(--surf2); border-bottom:1px solid var(--border); font-size:10px; letter-spacing:1px; position:sticky; top:56px; z-index:5; border-radius:0; }
+  .cards       { padding:12px 16px; gap:8px; background:var(--bg); }
+  .card        { width:100%; border-radius:6px; }
+  .card-body   { padding:12px 50px 12px 12px; }
+  .card-name   { font-size:14px; }
+  .card-icon   { opacity:.8; font-size:13px; padding:2px; }
+  .add-col-btn { width:calc(100% - 32px); height:40px; margin:8px 16px 16px; border-radius:6px; }
+  .columns-mobile-add { padding:8px 16px 16px; }
+  .cpanel      { margin-bottom:110px; }
+  .fab { display:none !important; }
+  .cpanel-hdr  { padding:10px 14px; }
+  .cpanel-body { padding:0 14px 18px; }
+  .ro-header { padding:14px; }
+  .ro-body   { padding:16px 14px; }
+  .ro-footer { padding:14px; }
+  .ro-score-big, .ro-pct { font-size:32px; }
+  .ro-cards  { gap:5px; }
+  .ro-card   { min-width:calc(50% - 8px); }
+  .modal-box { padding:20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ PAGE 1: COVER ══════════════════ -->
+<div id="page-cover" class="page active">
+  <div class="cover-eyebrow">カード連想図クイズ</div>
+  <div class="cover-title">CONNECT</div>
+  <div class="cover-sub">COLOR-CODED CARD ASSOCIATION</div>
+  <div class="cover-desc">カードを線でつないで正解を設定。<br>出題・回答・答え合わせで記憶を確かめる。</div>
+  <div class="cover-cta">
+    <button class="cta-btn cta-primary"   onclick="goTo('decks')">デッキ一覧へ</button>
+    <button class="cta-btn cta-secondary" onclick="newDeckAndStart()">すぐ始める</button>
+  </div>
+  <div class="cover-features">
+    <div class="feature"><div class="feature-icon">🖇️</div><div class="feature-label">線でつなぐ</div></div>
+    <div class="feature"><div class="feature-icon">🃏</div><div class="feature-label">デッキ管理</div></div>
+    <div class="feature"><div class="feature-icon">✓</div><div class="feature-label">答え合わせ</div></div>
+    <div class="feature"><div class="feature-icon">💾</div><div class="feature-label">自動保存</div></div>
+    <div class="feature"><div class="feature-icon">🔊</div><div class="feature-label">読み上げ</div></div>
+  </div>
+  <div class="cover-footer">AUTO-SAVE · EDIT · MOBILE READY</div>
+</div>
+
+<!-- ═══ PAGE 2: DECKS ══════════════════ -->
+<div id="page-decks" class="page">
+  <div class="topnav">
+    <div class="nav-logo" onclick="goTo('cover')">CONNECT</div>
+    <div class="nav-subtitle" id="decks-nav-sub">DECKS</div>
+    <div class="nav-right" id="decks-nav-right">
+      <button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button>
+      <button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button>
+    </div>
+  </div>
+  <div class="decks-hero">
+    <h2 id="decks-hero-title">デッキ一覧</h2>
+    <p  id="decks-hero-sub">デッキを選んで学習を始めましょう</p>
+  </div>
+  <div class="decks-body" id="decks-body"></div>
+</div>
+
+<!-- ═══ PAGE 3: QUIZ ═══════════════════ -->
+<div id="page-quiz" class="page">
+  <!-- Top nav -->
+  <div class="quiz-topnav">
+    <button class="btn" onclick="goTo('decks')" style="padding:6px 10px;">← 戻る</button>
+    <div class="quiz-deck-name" id="quiz-deck-name">DECK</div>
+    <div class="mode-badge setup" id="mode-badge">設定モード</div>
+    <div id="mode-btns" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+
+  <!-- Palette bar (desktop) -->
+  <div class="pbar" id="pbar">
+    <span class="plabel" id="plabel">正解を設定 →</span>
+    <div class="psep"></div>
+    <div class="status-pill">
+      <div class="sdot" id="sdot"></div>
+      <span id="stxt">カードを2枚タップして線でつなぐ</span>
+    </div>
+  </div>
+
+  <!-- Columns -->
+  <div class="canvas-wrap">
+    <div class="columns" id="columns"></div>
+  </div>
+
+  <!-- Connection list panel -->
+  <div class="cpanel open" id="cpanel">
+    <div class="cpanel-hdr" onclick="togglePanel()">
+      <div class="cpanel-title" id="cpanel-title">正解一覧</div>
+      <div class="cpanel-meta" id="cmeta">0 件</div>
+      <div class="cpanel-toggle">▲</div>
+    </div>
+    <div class="cpanel-body" id="cbody"></div>
+  </div>
+</div>
+
+<!-- ═══ PAGE 4: ORDER (並べ替え) ═════════ -->
+<div id="page-order" class="page">
+  <div class="quiz-topnav">
+    <button class="btn" onclick="goTo('decks')" style="padding:6px 10px;">← 戻る</button>
+    <div class="quiz-deck-name" id="order-deck-name">DECK</div>
+    <div class="mode-badge setup" id="order-badge">並べ替え</div>
+    <div id="order-btns" style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;"></div>
+  </div>
+  <div class="pbar">
+    <span class="plabel" id="order-plabel">正しい順に並べ替えよう</span>
+    <div class="psep"></div>
+    <div class="status-pill"><span id="order-stxt">▲▼ で動かす（PCはドラッグも可）</span></div>
+  </div>
+  <div class="canvas-wrap">
+    <div id="order-list" class="order-list"></div>
+  </div>
+</div>
+
+<!-- ═══ MOBILE BOTTOM BAR ══════════════ -->
+<input type="file" id="inp-import" accept="application/json,.json" style="display:none;" onchange="importBackupFile(this)"/>
+
+<!-- ═══ SYNC DIALOG ═════════════════════ -->
+<div class="overlay" id="ov-sync">
+  <div class="dialog" style="max-width:420px;">
+    <h3>🔑 同期コードで同期</h3>
+    <p id="sync-status" style="font-size:12px;color:var(--muted);margin:-4px 0 10px;"></p>
+    <input id="inp-synccode" type="text" autocomplete="off" placeholder="jsonblob のURL または ID を貼る" maxlength="200"/>
+    <p style="font-size:11px;color:var(--muted);line-height:1.7;margin:2px 0 12px;">
+      ① <b>jsonblob.com</b> をブラウザで開くと保存領域が自動で作られ、アドレスの末尾がその <b>ID</b> です。<br>
+      ② そのURL（またはID）をここに貼って「この端末を同期」。<br>
+      ③ 別の端末で同じコードを入れるとデータが揃います。<br>
+      <span style="color:var(--ng)">※ 暗号化なしの簡易同期。IDは推測されにくいものを。75日アクセスが無いと消えます。</span>
+    </p>
+    <div class="dialog-btns">
+      <button class="btn b-ok" onclick="confirmSync()">この端末を同期</button>
+      <button class="btn b-danger" id="sync-off-btn" style="display:none;" onclick="syncOff()">同期を解除</button>
+      <button class="btn" onclick="closeOv('ov-sync')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 隅の同期インジケータ -->
+<div id="sync-indicator" class="sync-ind off" onclick="openSyncDialog()" title="同期の設定">● 同期OFF</div>
+
+<div class="mobile-bar" id="mobile-bar">
+  <div class="mobile-bar-palette" id="mobile-palette"></div>
+  <button class="mobile-check-btn" id="mobile-check-btn" onclick="checkAnswers()">✓ 答え合わせ</button>
+</div>
+
+<!-- ═══ DESKTOP FAB ════════════════════ -->
+<button class="fab quiz-fab" id="fab" onclick="checkAnswers()">✓ 答え合わせ</button>
+
+<!-- ═══ RESULT OVERLAY ════════════════ -->
+<div class="result-overlay" id="result-overlay">
+  <div class="ro-header">
+    <div class="ro-title" id="ro-title">答え合わせ</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto;">
+      <div class="ro-score-big">
+        <span class="s-ok" id="ro-ok">0</span><span class="s-sl"> / </span><span id="ro-total">0</span>
+      </div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;">正解グループ数</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+      <div class="ro-pct" id="ro-pct">0%</div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:2px;">SCORE</div>
+    </div>
+  </div>
+  <div class="ro-body">
+   <div class="ro-body-inner">
+    <div id="ro-clear-note" style="display:none;"></div>
+    <div style="margin-bottom:32px;">
+      <div class="ro-section-title">正解一覧</div>
+      <div id="ro-groups"></div>
+    </div>
+    <div id="ro-wrongs-wrap" style="display:none;">
+      <div class="ro-section-title">間違えたカード</div>
+      <div id="ro-wrongs"></div>
+    </div>
+   </div>
+  </div>
+  <div class="ro-footer">
+    <button class="btn" onclick="retryFromResult()">↩ もう一度</button>
+    <button class="btn b-setup" onclick="setupFromResult()">✎ 設定へ</button>
+    <button class="btn" onclick="closeResult()">× 閉じる</button>
+    <button class="btn" onclick="speakAllResult()">🔊 読み上げ</button>
+  </div>
+</div>
+
+<!-- ═══ CARD DIALOG ════════════════════ -->
+<div class="overlay" id="ov-card">
+  <div class="dialog">
+    <h3 id="ov-card-title">カード追加</h3>
+    <input id="inp-cname" placeholder="名前・タイトル" maxlength="30"/>
+    <input id="inp-csub"  placeholder="補足 (任意)"   maxlength="30"/>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
+      <input id="inp-cread" placeholder="読み方 (任意・空欄なら自動)" maxlength="60" style="flex:1;margin-bottom:0;"/>
+      <button class="btn" style="font-size:11px;flex-shrink:0;" onclick="previewReading()" title="試聴">🔊</button>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div id="cimg-preview" style="display:none;margin-bottom:8px;">
+        <img id="cimg-thumb" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--border);display:block;"/>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" style="font-size:11px;" onclick="document.getElementById('inp-cimg').click()">🖼️ 画像を選ぶ</button>
+        <button class="btn b-danger" id="cimg-remove" style="font-size:11px;display:none;" onclick="removeCardImage()">画像を外す</button>
+        <span id="cimg-status" style="font-size:10px;color:var(--muted);"></span>
+      </div>
+      <input type="file" id="inp-cimg" accept="image/*" style="display:none;" onchange="pickCardImage(this)"/>
+    </div>
+    <div class="dialog-btns">
+      <button class="btn b-ok" onclick="confirmCard()">保存</button>
+      <button class="btn"      onclick="closeOv('ov-card')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DECK DIALOG ════════════════════ -->
+<div class="overlay" id="ov-deck">
+  <div class="dialog">
+    <h3 id="ov-deck-title">新規デッキ</h3>
+    <input id="inp-dname" placeholder="デッキ名"     maxlength="40"/>
+    <input id="inp-ddesc" placeholder="説明 (任意)"  maxlength="60"/>
+    <div class="dialog-btns">
+      <button class="btn b-ok" onclick="confirmDeck()">保存</button>
+      <button class="btn"      onclick="closeOv('ov-deck')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COLUMN DIALOG ══════════════════ -->
+<div class="overlay" id="ov-col">
+  <div class="dialog">
+    <h3 id="ov-col-title">列を編集</h3>
+    <input id="inp-colname" placeholder="列名" maxlength="20"/>
+    <div class="dialog-btns">
+      <button class="btn b-ok"     onclick="confirmColRename()">保存</button>
+      <button class="btn b-danger" id="ov-col-del-btn" onclick="confirmColDelete()">この列を削除</button>
+      <button class="btn"          onclick="closeOv('ov-col')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD COLUMN DIALOG ═══════════════ -->
+<div class="overlay" id="ov-addcol">
+  <div class="dialog">
+    <h3>列を追加</h3>
+    <input id="inp-addcol" placeholder="列名" maxlength="20"/>
+    <div class="dialog-btns">
+      <button class="btn b-ok" onclick="confirmAddColumn()">追加</button>
+      <button class="btn"      onclick="closeOv('ov-addcol')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══ ORDER DECK CREATE DIALOG ════════ -->
+<div class="overlay" id="ov-order">
+  <div class="dialog" style="max-width:520px;width:calc(100% - 32px);">
+    <h3>並べ替えデッキを作成</h3>
+    <p style="font-size:12px;color:var(--muted);margin:-4px 0 12px;line-height:1.6;">1行に1項目。<b>上から順＝正解の並び</b>で入力してください。出題時はシャッフルされ、正しい順に並べ替えます。</p>
+    <input id="inp-oname" placeholder="デッキ名（例: 曲構成の順番）" maxlength="40"/>
+    <textarea id="inp-olines" rows="9" placeholder="例:&#10;イントロ&#10;Aメロ&#10;Bメロ&#10;サビ&#10;間奏&#10;アウトロ"
+      style="width:100%;box-sizing:border-box;background:transparent;color:inherit;border:1px solid var(--border);border-radius:8px;padding:10px;font:inherit;font-size:13px;line-height:1.7;resize:vertical;margin-bottom:10px;"></textarea>
+    <div id="order-preview" style="font-size:12px;color:var(--muted);margin-bottom:8px;"></div>
+    <div class="dialog-btns">
+      <button class="btn b-ok" onclick="confirmOrderDeck()">デッキを作成</button>
+      <button class="btn"      onclick="closeOv('ov-order')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ BULK CREATE DIALOG ══════════════ -->
+<div class="overlay" id="ov-bulk">
+  <div class="dialog" style="max-width:560px;width:calc(100% - 32px);">
+    <h3 id="bulk-title">かんたん一括作成（英単語など）</h3>
+    <input id="inp-bname" placeholder="デッキ名（例: 英単語 Week1）" maxlength="40"/>
+    <div id="bulk-cols" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+    <button class="btn" style="margin-bottom:10px;font-size:11px;" onclick="addBulkCol()">＋ 列を追加</button>
+    <textarea id="inp-blines" rows="9" placeholder="1行に1セット。区切りは ｜ / タブ / カンマ&#10;&#10;例:&#10;inevitable｜避けられない｜Defeat was inevitable.&#10;legacy｜遺産｜the legacy of the past&#10;&#10;※3列目以降は行ごとに省略してもOK"
+      style="width:100%;box-sizing:border-box;background:transparent;color:inherit;border:1px solid var(--border,#ccc);border-radius:8px;padding:10px;font:inherit;font-size:13px;line-height:1.6;resize:vertical;margin-bottom:10px;"></textarea>
+    <div id="bulk-warn" style="display:none;font-size:11px;color:var(--ng);background:var(--ng-bg);border:1px solid var(--ng);border-radius:6px;padding:7px 10px;margin-bottom:8px;line-height:1.5;"></div>
+    <div id="bulk-preview" style="font-size:12px;color:var(--dim,#888);margin-bottom:8px;"></div>
+    <div class="dialog-btns">
+      <button class="btn b-ok" id="bulk-confirm-btn" onclick="confirmBulk()">デッキを作成</button>
+      <button class="btn"      onclick="closeOv('ov-bulk')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RANDOM COUNT DIALOG ════════════ -->
+<div class="overlay" id="ov-random">
+  <div class="dialog" style="max-width:360px;width:calc(100% - 32px);">
+    <h3>ランダム出題</h3>
+    <p style="font-size:12px;color:var(--muted);margin:-4px 0 14px;line-height:1.6;">何問出しますか？<br>正解が場にないカードもあります（つながないのが正解）。</p>
+    <div id="random-count-btns" style="display:flex;gap:8px;margin-bottom:12px;"></div>
+    <div class="dialog-btns">
+      <button class="btn" onclick="closeOv('ov-random')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CUSTOM MODAL ═══════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-body"  id="modal-body"></div>
+    <div class="modal-btns"  id="modal-btns"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════
+//  PALETTE
+// ══════════════════════════════════════════
+const PALETTE = [
+  { id:'p0', hex:'#ff5c5c', name:'赤' },
+  { id:'p1', hex:'#ff9f43', name:'橙' },
+  { id:'p2', hex:'#f4d03f', name:'黄' },
+  { id:'p3', hex:'#2ecc71', name:'緑' },
+  { id:'p4', hex:'#5dade2', name:'青' },
+  { id:'p5', hex:'#a29bfe', name:'紫' },
+  { id:'p6', hex:'#e84393', name:'桃' },
+  { id:'p7', hex:'#b2bec3', name:'白' },
+];
+
+const getP   = id => PALETTE.find(p => p.id === id);
+const getHex = id => getP(id)?.hex || '#444';
+
+
+// ══════════════════════════════════════════
+//  DATA MODEL + LOCALSTORAGE
+// ══════════════════════════════════════════
+const LS_KEY = 'connect_v5';
+let decks = [];
+let currentDeckId = null;
+let activeQuiz = null; // ランダム出題用の一時デッキ（decksには保存しない）
+let _nextDid = 1, _nextCid = 0, _nextKid = 0, _nextGid = 1;
+
+const currentDeck = () => activeQuiz || decks.find(d => d.id === currentDeckId);
+
+function save() {
+  let okLocal = true;
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) }));
+  } catch(e) {
+    // 容量超過のみ失敗として扱う。それ以外（プライベートモード等）はメモリ上で続行
+    okLocal = !(e && /quota/i.test(e.name || ''));
+  }
+  scheduleSyncPush();       // 同期ONのときだけ共有ストレージへ反映（デバウンス）
+  return okLocal;
+}
+
+// ══════════════════════════════════════════
+//  SYNC（jsonblob 同期コード方式・端末間同期）
+//   jsonblob.com のユーザー作成領域IDを「同期コード」にして GET / PUT する。
+//   POST（新規作成）はしない（Locationヘッダ依存で失敗しやすいため）。
+//   ユーザーは jsonblob.com を開いて領域を作り、URL末尾のIDを貼る。
+//   ※ jsonblob は75日アクセスが無いとデータが消える点に注意。
+//   ※ 暗号化なしの簡易同期。IDは推測されにくいものを使う前提。
+//   ※ Claudeプレビューは外部通信が遮断されるため、同期はGitHub Pages等で確認する。
+// ══════════════════════════════════════════
+const SYNC_LS = 'connect_sync_code';     // この端末に記憶する同期コード（正規化後のID）
+let syncId = null;                        // 同期ON時のみ文字列（jsonblobのID）
+let _syncTimer = null;
+let _syncOk = false;                      // 直近のPUT/ GETが成功したか（表示用）
+
+// localStorage ラッパー（使えない環境ではメモリにフォールバック）
+const _mem = {};
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) { _mem[k] = v; } }
+function lsGet(k)    { try { const v = localStorage.getItem(k); return v == null ? (k in _mem ? _mem[k] : null) : v; } catch(e) { return k in _mem ? _mem[k] : null; } }
+function lsRemove(k) { try { localStorage.removeItem(k); } catch(e) {} delete _mem[k]; }
+
+// 入力(URL or ID)から jsonblob の ID を取り出す。UUIDを優先、無ければ末尾パスセグメント。
+function normalizeSyncId(input) {
+  if (!input) return '';
+  const s = String(input).trim();
+  const uuid = s.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
+  if (uuid) return uuid[0];
+  // 末尾の /json などを除いて最後のパスセグメントを使う
+  const clean = s.split(/[?#]/)[0].replace(/\/+$/, '');
+  const segs = clean.split('/').filter(Boolean);
+  // 末尾が json ならその手前を採用
+  let last = segs[segs.length - 1];
+  if (/^json$/i.test(last) && segs.length >= 2) last = segs[segs.length - 2];
+  return last || '';
+}
+
+function jsonblobUrl(id) { return 'https://jsonblob.com/api/jsonBlob/' + id; }
+
+// 同期するデータをひとまとめにする
+function collectSyncData() {
+  return { decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8), _savedAt: Date.now() };
+}
+
+// 受け取ったデータを取り込む（ローカルにも保存）。有効なら true
+function applySyncData(obj) {
+  if (!obj || !Array.isArray(obj.decks)) return false;
+  decks    = obj.decks;
+  _nextDid = obj._nextDid || (Math.max(0, ...decks.map(x => x.id || 0)) + 1);
+  _nextCid = obj._nextCid || 0;
+  _nextKid = obj._nextKid || 0;
+  _nextGid = obj._nextGid || 1;
+  if (Array.isArray(obj.extraPalette)) obj.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
+  decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => { c.answer = c.answer || null; c.userColor = c.userColor || null; })));
+  lsSet(LS_KEY, JSON.stringify({ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) }));
+  return true;
+}
+
+async function syncPull() {
+  if (!syncId) return null;
+  try {
+    const res = await fetch(jsonblobUrl(syncId), { method: 'GET', headers: { 'Accept': 'application/json' } });
+    if (!res.ok) { _syncOk = false; return null; }
+    _syncOk = true;
+    return await res.json();
+  } catch(e) { _syncOk = false; return null; }
+}
+
+async function syncPush() {
+  if (!syncId) return;
+  try {
+    const res = await fetch(jsonblobUrl(syncId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(collectSyncData()),
+    });
+    _syncOk = !!(res && res.ok);
+  } catch(e) { _syncOk = false; }
+  updateSyncIndicator();
+}
+
+// 同期コードが設定されている時だけ、保存のたびに 0.7秒デバウンスで PUT
+function scheduleSyncPush() {
+  if (!syncId) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(syncPush, 700);
+}
+
+// 起動時：同期コードがあれば GET して取り込み、その後 PUT で最新を揃える
+async function bootSync() {
+  if (!syncId) { updateSyncIndicator(); return; }
+  const remote = await syncPull();
+  if (applySyncData(remote)) {
+    refreshAfterSync();
+    syncPush();               // 取り込み後、最新状態を揃える
+  } else {
+    syncPush();               // 同期先が空/無効 → 現在のデータをアップロード
+  }
+  updateSyncIndicator();
+}
+
+// 同期後にUIを再描画
+function refreshAfterSync() {
+  if (document.getElementById('page-decks').classList.contains('active')) {
+    if (deckView === 'detail' && decks.some(d => d.id === detailDeckId)) renderDeckDetail(detailDeckId);
+    else { deckView = 'list'; renderDeckList(); }
+  }
+}
+
+// 隅の同期インジケータ
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  if (syncId) { el.className = 'sync-ind on'; el.textContent = '☁ 同期ON'; }
+  else { el.className = 'sync-ind off'; el.textContent = '● 同期OFF'; }
+}
+
+// 同期ダイアログを開く
+function openSyncDialog() {
+  const on = !!syncId;
+  document.getElementById('sync-status').textContent = on
+    ? `現在この端末は同期ONです（コード末尾: …${syncId.slice(-6)}）。`
+    : '同期はOFFです（この端末のみ保存）。';
+  document.getElementById('inp-synccode').value = on ? syncId : '';
+  document.getElementById('sync-off-btn').style.display = on ? 'inline-block' : 'none';
+  openOv('ov-sync');
+  setTimeout(() => document.getElementById('inp-synccode').focus(), 50);
+}
+
+// 「この端末を同期」：GETして、データがあれば確認して取り込み、無ければアップロード
+async function confirmSync() {
+  const raw = document.getElementById('inp-synccode').value.trim();
+  const id  = normalizeSyncId(raw);
+  if (!id) { showAlert('同期コードが空です', 'jsonblob.com のURL、またはID（UUID）を貼ってください。'); return; }
+  closeOv('ov-sync');
+  syncId = id;
+  const remote = await syncPull();
+
+  if (remote && Array.isArray(remote.decks) && remote.decks.length) {
+    showModal('同期先にデータがあります',
+      `${remote.decks.length}個のデッキが見つかりました。取り込みますか？\n（この端末の今の内容は置き換わります）`,
+      [
+        { label: '取り込む', primary: true, action: () => {
+          applySyncData(remote);
+          lsSet(SYNC_LS, id);
+          refreshAfterSync(); updateSyncIndicator();
+          showAlert('同期しました', 'この端末は同期コードにつながりました。次回から自動で接続します。');
+        }},
+        { label: 'この端末のを使う', primary: false, action: () => {
+          lsSet(SYNC_LS, id);
+          syncPush(); updateSyncIndicator();
+          showAlert('同期しました', 'この端末のデータをアップロードしました。');
+        }},
+      ]);
+  } else if (_syncOk || remote !== null) {
+    // 通信は成功したが同期先にCONNECTのデータが無い → 現在のデータをアップロード
+    lsSet(SYNC_LS, id);
+    syncPush(); updateSyncIndicator();
+    showAlert('同期しました', 'この端末のデータをアップロードしました。別端末で同じコードを入れると揃います。');
+  } else {
+    // 通信失敗（プレビューの通信遮断、IDが無効/未作成 など）
+    syncId = null; updateSyncIndicator();
+    showAlert('同期できませんでした', 'jsonblob へアクセスできませんでした。\n・IDが正しいか（jsonblob.com で領域を作成済みか）\n・GitHub Pages 等の外部通信できる環境か\nを確認してください。');
+  }
+}
+
+function syncOff() {
+  syncId = null;
+  lsRemove(SYNC_LS);
+  closeOv('ov-sync');
+  updateSyncIndicator();
+  showAlert('同期をOFFにしました', 'この端末はローカル保存のみになります（データは残ります）。');
+}
+
+
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    decks    = d.decks    || [];
+    _nextDid = d._nextDid || 1;
+    _nextCid = d._nextCid || 0;
+    _nextKid = d._nextKid || 0;
+    _nextGid = d._nextGid || 1;
+    if (Array.isArray(d.extraPalette)) {
+      d.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
+    }
+    // Ensure all cards have required fields
+    decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => {
+      c.answer    = c.answer    || null;
+      c.userColor = c.userColor || null;
+    })));
+    return true;
+  } catch(e) { return false; }
+}
+
+// ══════════════════════════════════════════
+//  BACKUP（書き出し / 読み込み）
+// ══════════════════════════════════════════
+function _stamp() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+// 日付を主役にしたファイル名用（例: 2026-07-21_0821）
+function _dateTitle() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+// 今日の日付（YYYY-MM-DD）
+function todayStr() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// 全問正解（クリア）した日を記録。間違いがある場合は呼ばない。
+// 戻り値: 今日を新しく記録したら true（同じ日に既に記録済みなら false）
+// クリアした日付の履歴を小さく表示するHTMLを返す（無ければ空）
+function clearHistoryHtml(deck) {
+  const cl = (deck.clears || []).slice().sort().reverse();
+  if (!cl.length) return '';
+  const chips = cl.slice(0, 60).map(d => `<span class="clear-chip">${d}</span>`).join('');
+  return `<div class="clear-hist"><div class="clear-hist-hdr">🎯 クリア記録　${cl.length}日</div><div class="clear-hist-list">${chips}</div></div>`;
+}
+
+// 結果オーバーレイにクリア記録バナーを表示（マッチング・ランダム用）
+function showClearNote(deck, cleared, newToday) {
+  const el = document.getElementById('ro-clear-note');
+  if (!el) return;
+  if (!cleared) { el.style.display = 'none'; el.textContent = ''; el.className = ''; return; }
+  const target = deck.randomMode ? decks.find(d => d.id === randomSourceId) : deck;
+  const days = target && target.clears ? target.clears.length : 0;
+  el.className = 'ro-clear-note';
+  el.style.display = 'block';
+  el.textContent = (newToday ? '🎯 本日クリア！記録しました' : '🎯 クリア（本日は記録済み）') + `　通算 ${days} 日`;
+}
+
+function recordClear(deck) {
+  if (!deck) return false;
+  // ランダム出題の一時デッキは元デッキに記録
+  const target = deck.randomMode ? decks.find(d => d.id === randomSourceId) : deck;
+  if (!target) return false;
+  target.clears = target.clears || [];
+  const t = todayStr();
+  if (target.clears.includes(t)) return false;
+  target.clears.push(t);
+  save();
+  return true;
+}
+
+function _download(filename, text, mime) {
+  const blob = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// 全デッキを日付つきJSONで書き出し（完全バックアップ・復元用）
+function exportBackup() {
+  const payload = {
+    format: 'card-connect-backup', version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) },
+  };
+  _download(`${_dateTitle()}.json`, JSON.stringify(payload), 'application/json');
+}
+
+// 1デッキをCSVで書き出し（人が読める・完全復元は不可）
+function _csvCell(s) {
+  s = (s == null ? '' : String(s));
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function exportDeckCsv(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck) return;
+  const rows = [];
+  if (deck.orderMode) {
+    rows.push(['順番', '項目', '読み'].map(_csvCell).join(','));
+    deck.items.forEach((it, i) => rows.push([i + 1, it.name, it.reading || ''].map(_csvCell).join(',')));
+  } else {
+    const pidOrder = [];
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer && !pidOrder.includes(c.answer)) pidOrder.push(c.answer); }));
+    rows.push([...deck.columns.map(c => c.label), 'セット'].map(_csvCell).join(','));
+    // セットごとに1行
+    pidOrder.forEach((pid, gi) => {
+      const cells = deck.columns.map(col => { const c = col.cards.find(x => x.answer === pid); return c ? c.name : ''; });
+      rows.push([...cells, setLabel(deck, pid, gi)].map(_csvCell).join(','));
+    });
+    // セット無しカード
+    deck.columns.forEach((col, ci) => col.cards.forEach(c => {
+      if (c.answer) return;
+      const cells = deck.columns.map(() => ''); cells[ci] = c.name;
+      rows.push([...cells, ''].map(_csvCell).join(','));
+    }));
+  }
+  const safeName = deck.name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 30);
+  _download(`${safeName}_${_stamp()}.csv`, '\uFEFF' + rows.join('\r\n'), 'text/csv'); // BOM付きでExcel文字化け防止
+}
+
+// JSONバックアップを読み込んで復元（現データを置き換え / 追加）
+function importBackupFile(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let obj;
+    try { obj = JSON.parse(reader.result); }
+    catch { showAlert('読み込めません', 'JSONとして解釈できませんでした。書き出したバックアップファイルを選んでください。'); return; }
+    const d = obj && obj.data ? obj.data : obj; // 旧localStorage形式も一応許容
+    if (!d || !Array.isArray(d.decks)) { showAlert('読み込めません', 'デッキのデータが見つかりませんでした。'); return; }
+    const count = d.decks.length;
+    showConfirm('バックアップを復元', `${count}個のデッキを読み込みます。今あるデッキはすべて置き換わります。よろしいですか？`, '置き換える', 'キャンセル', () => {
+      decks    = d.decks;
+      _nextDid = d._nextDid || (Math.max(0, ...decks.map(x => x.id)) + 1);
+      _nextCid = d._nextCid || 0;
+      _nextKid = d._nextKid || 0;
+      _nextGid = d._nextGid || 1;
+      if (Array.isArray(d.extraPalette)) d.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
+      decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => { c.answer = c.answer || null; c.userColor = c.userColor || null; })));
+      if (!save()) { showAlert('保存できません', '容量の上限を超えている可能性があります。'); }
+      deckView = 'list';
+      renderDeckList();
+      showAlert('復元しました', `${count}個のデッキを読み込みました。`);
+    });
+  };
+  reader.readAsText(file);
+}
+
+function createDeck(name, desc) {
+  const d = { id: _nextDid++, name: name || '新しいデッキ', desc: desc || '', columns: [], lastScore: null, createdAt: new Date().toLocaleDateString('ja-JP') };
+  decks.push(d);
+  save();
+  return d;
+}
+
+function deleteDeck(id) {
+  decks = decks.filter(d => d.id !== id);
+  save();
+}
+
+function initDefaultDeck() {
+  // ── サンプルデッキ ──────────────────────────
+  const d = createDeck('声優×キャラ×作品', '声優・キャラ・作品を線でつなごう');
+  d.columns = [
+    { id: _nextCid++, label: '声優', cards: [
+      { id: _nextKid++, name: '沢城みゆき', sub: '', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: '神谷浩史',   sub: '', answer: 'p2', userColor: null },
+      { id: _nextKid++, name: '平野綾',     sub: '', answer: 'p3', userColor: null },
+      { id: _nextKid++, name: '釘宮理恵',   sub: '', answer: 'p4', userColor: null },
+    ]},
+    { id: _nextCid++, label: 'キャラクター', cards: [
+      { id: _nextKid++, name: '涼宮ハルヒ', sub: '', answer: 'p3', userColor: null },
+      { id: _nextKid++, name: '峰不二子',   sub: '', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: 'シャナ',     sub: '', answer: 'p4', userColor: null },
+      { id: _nextKid++, name: '阿良々木暦', sub: '', answer: 'p2', userColor: null },
+    ]},
+    { id: _nextCid++, label: '作品', cards: [
+      { id: _nextKid++, name: '化物語',            sub: '', answer: 'p2', userColor: null },
+      { id: _nextKid++, name: '灼眼のシャナ',      sub: '', answer: 'p4', userColor: null },
+      { id: _nextKid++, name: 'ルパン三世',        sub: '', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: '涼宮ハルヒの憂鬱',  sub: '', answer: 'p3', userColor: null },
+    ]},
+  ];
+
+  // ── 英単語テンプレート（サンプル） ──────────
+  const en = createDeck('英単語【サンプル】', '英単語・意味・例文を結び合わせよう。編集して自分の単語に差し替えOK');
+  en.columns = [
+    { id: _nextCid++, label: '英単語', cards: [
+      { id: _nextKid++, name: 'inevitable',  sub: '形容詞', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: 'deteriorate', sub: '動詞',   answer: 'p1', userColor: null },
+      { id: _nextKid++, name: 'ambiguous',   sub: '形容詞', answer: 'p2', userColor: null },
+      { id: _nextKid++, name: 'compensate',  sub: '動詞',   answer: 'p3', userColor: null },
+      { id: _nextKid++, name: 'legacy',      sub: '名詞',   answer: 'p4', userColor: null },
+    ]},
+    { id: _nextCid++, label: '意味', cards: [
+      { id: _nextKid++, name: '曖昧な・多義的な',       sub: '', answer: 'p2', userColor: null },
+      { id: _nextKid++, name: '避けられない・必然の',   sub: '', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: '遺産・受け継がれたもの', sub: '', answer: 'p4', userColor: null },
+      { id: _nextKid++, name: '悪化する・劣化する',     sub: '', answer: 'p1', userColor: null },
+      { id: _nextKid++, name: '補償する・埋め合わせる', sub: '', answer: 'p3', userColor: null },
+    ]},
+    { id: _nextCid++, label: '例文・用法', cards: [
+      { id: _nextKid++, name: 'His answer was ambiguous.',            sub: '彼の答えは曖昧だった', answer: 'p2', userColor: null },
+      { id: _nextKid++, name: 'compensate for the loss',              sub: '損失を埋め合わせる',   answer: 'p3', userColor: null },
+      { id: _nextKid++, name: 'Defeat was inevitable.',               sub: '敗北は避けられなかった', answer: 'p0', userColor: null },
+      { id: _nextKid++, name: 'the legacy of the past',               sub: '過去の遺産',           answer: 'p4', userColor: null },
+      { id: _nextKid++, name: 'The situation deteriorated rapidly.',  sub: '状況は急速に悪化した', answer: 'p1', userColor: null },
+    ]},
+  ];
+
+  save();
+}
+
+// 既存の保存データからFX用語デッキを一度だけ削除する
+function purgeFxDecks() {
+  const before = decks.length;
+  decks = decks.filter(d => !/^FX用語【/.test(d.name || ''));
+  if (decks.length !== before) save();
+}
+
+// ══════════════════════════════════════════
+//  GROUP MATCHING HELPERS
+// ══════════════════════════════════════════
+function setsEqual(a, b) {
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+// Returns Map<answerPid, Set<cardId>> for all answer groups
+function buildAnswerGroups(deck) {
+  const map = new Map();
+  deck.columns.forEach(col => col.cards.forEach(card => {
+    if (!card.answer) return;
+    if (!map.has(card.answer)) map.set(card.answer, new Set());
+    map.get(card.answer).add(card.id);
+  }));
+  return map;
+}
+
+// Returns Map<userColorPid, Set<cardId>> for all user answer groups
+function buildUserGroups(deck) {
+  const map = new Map();
+  deck.columns.forEach(col => col.cards.forEach(card => {
+    if (!card.userColor) return;
+    if (!map.has(card.userColor)) map.set(card.userColor, new Set());
+    map.get(card.userColor).add(card.id);
+  }));
+  return map;
+}
+
+// 場に出ているカードのうち同じ正解pidを持つ枚数（ランダム出題の判定用）
+function shownGroupSize(card, deck) {
+  if (!card.answer) return 0;
+  let n = 0;
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer === card.answer) n++; }));
+  return n;
+}
+
+// A card is correct if its answer group exactly matches its user group
+function isCardCorrect(card, deck) {
+  // ランダム出題: 正解ペアが場に無いカードは「つながない」が正解
+  if (deck.randomMode) {
+    const expectConnect = card.answer && shownGroupSize(card, deck) >= 2;
+    if (!expectConnect) return !card.userColor;
+  }
+  if (!card.answer || !card.userColor) return false;
+  const cSet = new Set(), uSet = new Set();
+  deck.columns.forEach(col => col.cards.forEach(c => {
+    if (c.answer    === card.answer)    cSet.add(c.id);
+    if (c.userColor === card.userColor) uSet.add(c.id);
+  }));
+  return setsEqual(cSet, uSet);
+}
+
+// Count how many answer groups the user got exactly right
+function countCorrectGroups(deck) {
+  const aGroups = buildAnswerGroups(deck);
+  const uGroups = buildUserGroups(deck);
+  let correct = 0;
+  const matched = new Set();
+  aGroups.forEach(aSet => {
+    for (const [uPid, uSet] of uGroups.entries()) {
+      if (matched.has(uPid)) continue;
+      if (setsEqual(aSet, uSet)) { correct++; matched.add(uPid); break; }
+    }
+  });
+  return { correct, total: aGroups.size };
+}
+
+// ══════════════════════════════════════════
+//  PAGE ROUTER
+// ══════════════════════════════════════════
+function goTo(page) {
+  if (page !== 'quiz') activeQuiz = null;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('fab').classList.remove('show');
+  document.getElementById('mobile-bar').classList.remove('show');
+  if (page === 'decks') renderDeckList();
+}
+
+// ══════════════════════════════════════════
+//  DECK LIST PAGE
+// ══════════════════════════════════════════
+let deckView = 'list';
+let detailDeckId = null;
+
+function renderDecksPage() {
+  deckView === 'list' ? renderDeckList() : renderDeckDetail(detailDeckId);
+}
+
+function renderDeckList() {
+  deckView = 'list';
+  document.getElementById('decks-hero-title').textContent = 'デッキ一覧';
+  document.getElementById('decks-hero-sub').textContent   = `${decks.length} 件`;
+  document.getElementById('decks-nav-sub').textContent    = 'DECKS';
+  document.getElementById('decks-nav-right').innerHTML    = `<button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button><button class="btn" onclick="openOrderDialog()">🔢 順番デッキ</button><button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button><button class="btn" onclick="exportBackup()" title="全デッキをJSONで書き出し">💾 バックアップ</button><button class="btn" onclick="document.getElementById('inp-import').click()" title="バックアップから復元">📂 読み込み</button><button class="btn" onclick="openSyncDialog()" title="合言葉で端末間同期">🔑 同期</button>`;
+
+  const body = document.getElementById('decks-body');
+  body.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'decks-grid';
+
+  decks.forEach(deck => {
+    const isOrder    = !!deck.orderMode;
+    const totalCards = isOrder ? deck.items.length : deck.columns.reduce((s, c) => s + c.cards.length, 0);
+    const accentHex  = getHex(PALETTE[deck.id % PALETTE.length]?.id || 'p0');
+    const scoreHtml  = deck.lastScore
+      ? `<div class="dstat"><div class="dstat-num s-ok">${deck.lastScore.pct}%</div><div class="dstat-label">前回</div></div>`
+      : `<div class="dstat"><div class="dstat-num" style="color:var(--muted)">—</div><div class="dstat-label">未受験</div></div>`;
+
+    const clearDays  = deck.clears ? deck.clears.length : 0;
+    const clearHtml  = `<div class="dstat"><div class="dstat-num ${clearDays ? 's-ok' : ''}" ${clearDays ? '' : 'style="color:var(--muted)"'}>${clearDays ? '🎯' + clearDays : '—'}</div><div class="dstat-label">クリア日数</div></div>`;
+
+    const statsHtml = isOrder
+      ? `<div class="dstat"><div class="dstat-num">🔢</div><div class="dstat-label">並べ替え</div></div>
+         <div class="dstat"><div class="dstat-num">${totalCards}</div><div class="dstat-label">項目</div></div>
+         ${clearHtml}`
+      : `<div class="dstat"><div class="dstat-num">${deck.columns.length}</div><div class="dstat-label">列</div></div>
+         <div class="dstat"><div class="dstat-num">${totalCards}</div><div class="dstat-label">カード</div></div>
+         ${clearHtml}`;
+
+    const actionsHtml = isOrder
+      ? `<button class="deck-act" onclick="startOrderQuiz(${deck.id});event.stopPropagation()" style="color:var(--quiz-c)">🔢 並べ替え</button>
+         <button class="deck-act" onclick="openOrderEditor(${deck.id});event.stopPropagation()">✎ 編集</button>
+         <button class="deck-act del" onclick="confirmDelDeck(${deck.id});event.stopPropagation()">削除</button>`
+      : `<button class="deck-act" onclick="startDeckQuiz(${deck.id});event.stopPropagation()" style="color:var(--quiz-c)">▶ 出題</button>
+         <button class="deck-act" onclick="openRandomDialog(${deck.id});event.stopPropagation()" style="color:var(--quiz-c)">🎲 ランダム</button>
+         <button class="deck-act" onclick="openDeck(${deck.id});event.stopPropagation()">✎ 編集</button>
+         <button class="deck-act" onclick="openDeckDetail(${deck.id});event.stopPropagation()">一覧</button>`;
+
+    const card = document.createElement('div');
+    card.className = 'deck-card';
+    card.innerHTML = `
+      <div class="deck-accent" style="background:${accentHex}"></div>
+      <div class="deck-card-body">
+        <div class="deck-card-name">${deck.name}</div>
+        ${deck.desc ? `<div class="deck-card-desc">${deck.desc}</div>` : ''}
+        <div class="deck-stats">${statsHtml}</div>
+      </div>
+      <div class="deck-actions">${actionsHtml}</div>
+    `;
+    grid.appendChild(card);
+  });
+
+  const newBtn = document.createElement('div');
+  newBtn.className = 'new-deck-btn';
+  newBtn.innerHTML = `<div class="new-deck-icon">＋</div><div class="new-deck-label">新しいデッキ</div>`;
+  newBtn.onclick = openNewDeckDialog;
+  grid.appendChild(newBtn);
+  body.appendChild(grid);
+}
+
+function openDeckDetail(id) { deckView = 'detail'; detailDeckId = id; renderDeckDetail(id); }
+
+function renderDeckDetail(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck) return;
+  document.getElementById('decks-hero-title').textContent = deck.name;
+  document.getElementById('decks-hero-sub').textContent   = deck.desc || 'カード一覧';
+  document.getElementById('decks-nav-sub').textContent    = 'DETAIL';
+  document.getElementById('decks-nav-right').innerHTML = `
+    <button class="btn" onclick="deckView='list';renderDeckList()">← 戻る</button>
+    <button class="btn b-quiz" onclick="startDeckQuiz(${deck.id})">▶ 出題</button>
+    <button class="btn b-quiz" onclick="openRandomDialog(${deck.id})">🎲 ランダム</button>
+    <button class="btn b-ok" onclick="openDeck(${deck.id})">✎ 編集</button>
+    <button class="btn b-ok" onclick="openBulkEditDialog(${deck.id})">⚡ 一括編集</button>
+    <button class="btn" onclick="showAnswerKey(${deck.id})">解答</button>
+    <button class="btn" onclick="exportDeckCsv(${deck.id})" title="このデッキをCSVで書き出し">📄 CSV</button>
+    <button class="btn" onclick="editDeckDialog(${deck.id})">名前を変更</button>
+    <button class="btn b-danger" onclick="confirmDelDeck(${deck.id})">削除</button>
+  `;
+
+  const body = document.getElementById('decks-body');
+  body.innerHTML = '';
+  if (!deck.columns.length) {
+    body.innerHTML = '<p style="font-family:Space Mono,monospace;font-size:10px;color:var(--muted);padding:20px 0;">カードがありません。「✎ 編集」から追加してください。</p>';
+    return;
+  }
+
+  const maxRows = Math.max(...deck.columns.map(c => c.cards.length));
+  body.insertAdjacentHTML('beforeend', clearHistoryHtml(deck));
+  const table   = document.createElement('table');
+  table.className = 'deck-table';
+  table.innerHTML = `<thead><tr>${deck.columns.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>`;
+  const tbody = document.createElement('tbody');
+
+  // 正解セット番号（登場順）
+  const pidOrder = [];
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer && !pidOrder.includes(c.answer)) pidOrder.push(c.answer); }));
+
+  // 1枚しか入っていないセットの警告
+  const counts = {};
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer) counts[c.answer] = (counts[c.answer] || 0) + 1; }));
+  const lonely = pidOrder.filter(pid => counts[pid] === 1).map(pid => `セット ${pidOrder.indexOf(pid) + 1}`);
+  if (lonely.length) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'font-size:11px;color:var(--ng);background:var(--ng-bg);border:1px solid var(--ng);border-radius:8px;padding:8px 12px;margin-bottom:12px;';
+    warn.textContent = `⚠ ${lonely.join('・')} はカードが1枚しかありません。クイズでは正解できないので、相手のカードを追加するか未設定に戻してください。`;
+    body.appendChild(warn);
+  }
+
+  // ── セット管理セクション ──────────────
+  if (pidOrder.length) {
+    deck.setNames = deck.setNames || {};
+    const sec = document.createElement('div');
+    sec.className = 'setmgr';
+    const head = document.createElement('div');
+    head.className = 'setmgr-hdr';
+    head.innerHTML = `<span>セット（正解の組み合わせ）</span><span class="setmgr-count">${pidOrder.length} セット</span>`;
+    sec.appendChild(head);
+
+    pidOrder.forEach((pid, gi) => {
+      const members = [];
+      deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer === pid) members.push({ name: c.name, col: col.label }); }));
+      const row = document.createElement('div');
+      row.className = 'setmgr-row';
+      const chips = members.map(m => `<span class="setmgr-chip"><b>${m.col}</b> ${m.name}</span>`).join('');
+      row.innerHTML = `
+        <input class="setmgr-name" value="${(deck.setNames[pid] || '').replace(/"/g,'&quot;')}"
+          placeholder="セット ${gi + 1}" maxlength="24"
+          onchange="renameSet(${deck.id},'${pid}',this.value)"/>
+        <div class="setmgr-chips">${chips || '<span class="td-muted">カードなし</span>'}</div>
+        <button class="td-btn del" onclick="detailClearSet(${deck.id},'${pid}')">解除</button>
+      `;
+      sec.appendChild(row);
+    });
+    body.appendChild(sec);
+  }
+
+  for (let r = 0; r < maxRows; r++) {
+    const tr = document.createElement('tr');
+    deck.columns.forEach((col, ci) => {
+      const td   = document.createElement('td');
+      const card = col.cards[r];
+      if (card) {
+        const opts = [
+          `<option value="" ${!card.answer ? 'selected' : ''}>未設定</option>`,
+          ...pidOrder.map((pid, gi) => {
+            const members = [];
+            deck.columns.forEach((c2, cj) => c2.cards.forEach(cc => { if (cc.answer === pid && cc.id !== card.id) members.push(cc.name); }));
+            const label = setLabel(deck, pid, gi) + (members.length ? `（${members.slice(0, 2).join('・')}${members.length > 2 ? '…' : ''}）` : '');
+            return `<option value="${pid}" ${card.answer === pid ? 'selected' : ''}>${label}</option>`;
+          }),
+          `<option value="__new">＋ 新しいセット</option>`,
+        ].join('');
+        td.innerHTML = `
+          ${card.img ? `<img src="${card.img}" alt="" style="max-width:90px;max-height:64px;border-radius:5px;border:1px solid var(--border);display:block;margin-bottom:4px;" loading="lazy"/>` : ''}
+          <div style="font-weight:700;font-size:13px;">${card.name}</div>
+          ${card.sub ? `<div class="td-muted">${card.sub}</div>` : ''}
+          <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <select onchange="detailSetAnswer(${ci},${r},this.value)"
+              style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:transparent;color:${card.answer ? 'var(--accent)' : 'var(--muted)'};max-width:150px;">
+              ${opts}
+            </select>
+            <button class="td-btn" onclick="detailEditCard(${ci},${r})">✎ 編集</button>
+            <button class="td-btn del" onclick="detailDelCard(${ci},${r})">× 削除</button>
+          </div>`;
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+
+  // 各列の「＋ カード追加」行
+  const trAdd = document.createElement('tr');
+  deck.columns.forEach((col, ci) => {
+    const td = document.createElement('td');
+    td.innerHTML = `<button class="btn" style="font-size:10px;padding:5px 10px;" onclick="detailAddCard(${ci})">＋ カード追加</button>`;
+    trAdd.appendChild(td);
+  });
+  tbody.appendChild(trAdd);
+
+  table.appendChild(tbody);
+  body.appendChild(table);
+}
+
+function showAnswerKey(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck) return;
+  const hasAnswer = deck.columns.some(c => c.cards.some(card => card.answer));
+  if (!hasAnswer) { showAlert('解答未設定', 'このデッキにはまだ正解が設定されていません。設定モードで線をつないでください。'); return; }
+
+  // 一時的にcurrentDeckIdをセットしてオーバーレイだけ表示
+  const prev = currentDeckId;
+  currentDeckId = deckId;
+
+  // 全カードのuserColorを一時的にanswerと同じにして「全正解」表示
+  deck.columns.forEach(col => col.cards.forEach(c => c._tmpUser = c.userColor));
+  deck.columns.forEach(col => col.cards.forEach(c => c.userColor = c.answer));
+
+  // タイトルを「解答一覧」に変えてオーバーレイ表示
+  showAnswerOnlyOverlay(deck);
+
+  // userColorを元に戻す
+  deck.columns.forEach(col => col.cards.forEach(c => { c.userColor = c._tmpUser; delete c._tmpUser; }));
+  currentDeckId = prev;
+}
+
+function showAnswerOnlyOverlay(deck) {
+  const aGroups = buildAnswerGroups(deck);
+  const groupsEl = document.getElementById('ro-groups');
+  groupsEl.innerHTML = '';
+
+  document.getElementById('ro-title').textContent   = '解答一覧';
+  document.getElementById('ro-ok').textContent      = aGroups.size;
+  document.getElementById('ro-total').textContent   = aGroups.size;
+  document.getElementById('ro-pct').textContent     = 'ANSWER';
+  document.getElementById('ro-wrongs-wrap').style.display = 'none';
+
+  let gNum = 0;
+  aGroups.forEach((aSet, aPid) => {
+    gNum++;
+    const items = [];
+    deck.columns.forEach(col => col.cards.forEach(card => {
+      if (card.answer === aPid) items.push({ card, colLabel: col.label });
+    }));
+    const p = getP(aPid);
+    const grp = document.createElement('div'); grp.className = 'ro-group';
+    grp.innerHTML = `
+      <div class="ro-group-hdr" style="border-left:4px solid ${p?.hex || 'var(--accent)'}">
+        <div class="ro-color-bar" style="background:${p?.hex || 'var(--accent)'}"></div>
+        <div class="ro-group-name">グループ ${gNum}</div>
+        <div class="ro-group-score" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted)">${items.length} カード</div>
+      </div>
+    `;
+    const cardsWrap = document.createElement('div'); cardsWrap.className = 'ro-cards';
+    items.forEach(({ card, colLabel }) => {
+      const rc = document.createElement('div'); rc.className = 'ro-card';
+      rc.style.borderLeftColor = p?.hex || 'var(--accent)';
+      rc.innerHTML = `
+        <div class="ro-card-name">${card.name}</div>
+        <div class="ro-card-col">${colLabel}</div>
+      `;
+      cardsWrap.appendChild(rc);
+    });
+    grp.appendChild(cardsWrap);
+    groupsEl.appendChild(grp);
+  });
+
+  // フッターを「解答モード用」に変更
+  const footer = document.querySelector('.ro-footer');
+  footer.innerHTML = `<button class="btn" onclick="closeResult();restoreResultTitle()">× 閉じる</button>`;
+
+  document.getElementById('result-overlay').classList.add('show');
+  document.getElementById('result-overlay').scrollTop = 0;
+}
+
+function restoreResultTitle() {
+  document.getElementById('ro-title').textContent = '答え合わせ';
+  document.getElementById('ro-pct').textContent   = '0%';
+  // フッターを元に戻す
+  document.querySelector('.ro-footer').innerHTML = `
+    <button class="btn" onclick="retryFromResult()">↩ もう一度</button>
+    <button class="btn b-setup" onclick="setupFromResult()">✎ 設定へ</button>
+    <button class="btn" onclick="closeResult()">× 閉じる</button>
+    <button class="btn" onclick="speakAllResult()">🔊 読み上げ</button>
+  `;
+}
+
+function confirmDelDeck(id) {
+  const deck = decks.find(d => d.id === id);
+  if (!deck) return;
+  showConfirm(`「${deck.name}」を削除`, `この操作は取り消せません。`,
+    '削除する', 'キャンセル',
+    () => { deleteDeck(id); renderDeckList(); }
+  );
+}
+
+// ══════════════════════════════════════════
+//  DECK DIALOGS
+// ══════════════════════════════════════════
+let editingDeckId = null;
+
+function openNewDeckDialog() {
+  editingDeckId = null;
+  document.getElementById('ov-deck-title').textContent = '新規デッキ';
+  document.getElementById('inp-dname').value = '';
+  document.getElementById('inp-ddesc').value = '';
+  openOv('ov-deck');
+  setTimeout(() => document.getElementById('inp-dname').focus(), 50);
+}
+
+function editDeckDialog(id) {
+  const deck = decks.find(d => d.id === id);
+  if (!deck) return;
+  editingDeckId = id;
+  document.getElementById('ov-deck-title').textContent = 'デッキを編集';
+  document.getElementById('inp-dname').value = deck.name;
+  document.getElementById('inp-ddesc').value = deck.desc || '';
+  openOv('ov-deck');
+  setTimeout(() => document.getElementById('inp-dname').focus(), 50);
+}
+
+function confirmDeck() {
+  const name = document.getElementById('inp-dname').value.trim();
+  if (!name) return;
+  const desc = document.getElementById('inp-ddesc').value.trim();
+  if (editingDeckId) {
+    const deck = decks.find(d => d.id === editingDeckId);
+    if (deck) { deck.name = name; deck.desc = desc; }
+    save(); closeOv('ov-deck'); renderDecksPage();
+  } else {
+    const deck = createDeck(name, desc);
+    closeOv('ov-deck');
+    openDeck(deck.id);
+  }
+}
+
+// ══════════════════════════════════════════
+//  BULK CREATE（かんたん一括作成）
+// ══════════════════════════════════════════
+let bulkCols = ['英単語', '意味', '例文'];
+
+// ══════════════════════════════════════════
+//  ORDER DECK（並べ替えで順番を覚える）
+// ══════════════════════════════════════════
+let orderDeckId = null;
+let orderWork = [];
+let orderPhase = 'quiz';
+
+function openOrderDialog() {
+  document.getElementById('inp-oname').value = '';
+  document.getElementById('inp-olines').value = '';
+  document.getElementById('order-preview').textContent = '';
+  openOv('ov-order');
+  setTimeout(() => document.getElementById('inp-oname').focus(), 50);
+}
+
+function updateOrderPreview() {
+  const lines = document.getElementById('inp-olines').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  document.getElementById('order-preview').textContent = lines.length ? `${lines.length} 項目の並びを作成します` : '';
+}
+
+function confirmOrderDeck() {
+  const lines = document.getElementById('inp-olines').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length < 2) { showModal('項目が足りません', '2行以上入力してください。', [{ label: 'OK', cls: 'b-ok' }]); return; }
+  const name = document.getElementById('inp-oname').value.trim() || '並べ替えデッキ';
+  const deck = {
+    id: _nextDid++, name, desc: `${lines.length}項目・順番を覚える`,
+    orderMode: true, columns: [],
+    items: lines.map(t => ({ id: _nextKid++, name: t, sub: '', img: null })),
+  };
+  decks.push(deck);
+  save();
+  closeOv('ov-order');
+  startOrderQuiz(deck.id);
+}
+
+const _shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function startOrderQuiz(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck || !deck.orderMode) return;
+  orderDeckId = deckId;
+  orderPhase = 'quiz';
+  orderWork = _shuffle([...deck.items]);
+  if (deck.items.length >= 3 && orderWork.every((it, i) => it.id === deck.items[i].id)) orderWork = _shuffle([...deck.items]);
+  document.getElementById('order-deck-name').textContent = deck.name;
+  goTo('order');
+  renderOrderQuiz();
+}
+
+function renderOrderQuiz() {
+  const deck = decks.find(d => d.id === orderDeckId);
+  if (!deck) return;
+  const result = orderPhase === 'result';
+
+  document.getElementById('order-badge').textContent  = result ? '答え合わせ' : '並べ替え';
+  document.getElementById('order-plabel').textContent = result ? '結果' : '正しい順に並べ替えよう';
+  document.getElementById('order-stxt').textContent   = result ? '緑=正しい位置 / 赤=違う位置' : '▲▼ で動かす（PCはドラッグも可）';
+
+  document.getElementById('order-btns').innerHTML = result ? `
+    <button class="btn b-ok" onclick="startOrderQuiz(orderDeckId)">↻ もう一度</button>
+    <button class="btn"       onclick="openOrderEditor(orderDeckId)">✎ 編集</button>
+  ` : `
+    <button class="btn b-ok" onclick="checkOrder()">✓ 答え合わせ</button>
+    <button class="btn"       onclick="shuffleOrder()">🔀 混ぜ直す</button>
+    <button class="btn"       onclick="speakOrder()">🔊</button>
+  `;
+
+  const correctPos = {};
+  deck.items.forEach((it, i) => correctPos[it.id] = i);
+
+  const list = document.getElementById('order-list');
+  list.innerHTML = '';
+
+  if (result) {
+    const correct = orderWork.filter((it, i) => correctPos[it.id] === i).length;
+    const bar = document.createElement('div');
+    bar.className = 'order-scorebar';
+    const pct = Math.round(correct / orderWork.length * 100);
+    bar.style.color = pct === 100 ? 'var(--ok)' : pct >= 50 ? 'var(--accent)' : 'var(--ng)';
+    bar.textContent = `${correct} / ${orderWork.length} 正しい位置（${pct}%）`;
+    list.appendChild(bar);
+    if (orderCleared) {
+      const note = document.createElement('div');
+      note.className = 'ro-clear-note';
+      note.style.maxWidth = '640px';
+      note.style.margin = '0 auto 14px';
+      const days = deck.clears ? deck.clears.length : 0;
+      note.textContent = (orderClearedToday ? '🎯 本日クリア！記録しました' : '🎯 クリア（本日は記録済み）') + `　通算 ${days} 日`;
+      list.appendChild(note);
+    }
+  }
+
+  orderWork.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'order-item';
+    let correctHtml = '';
+    if (result) {
+      const ok = correctPos[it.id] === i;
+      row.classList.add(ok ? 'ok' : 'ng');
+      if (!ok) correctHtml = `<span class="order-correct">正しくは ${correctPos[it.id] + 1} 番</span>`;
+    }
+    row.innerHTML = `
+      ${result ? '' : '<span class="order-grip" title="ドラッグで移動">⠿</span>'}
+      <span class="order-pos">${i + 1}</span>
+      <div class="order-name">${it.name}${it.sub ? `<small>${it.sub}</small>` : ''}</div>
+      ${correctHtml}
+      ${result ? '' : `
+        <div class="order-moves">
+          <button class="order-move" ${i === 0 ? 'disabled' : ''} onclick="moveOrder(${i},-1)">▲</button>
+          <button class="order-move" ${i === orderWork.length - 1 ? 'disabled' : ''} onclick="moveOrder(${i},1)">▼</button>
+        </div>`}
+    `;
+    if (!result) enableDrag(row, i);
+    list.appendChild(row);
+  });
+}
+
+function moveOrder(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= orderWork.length) return;
+  [orderWork[i], orderWork[j]] = [orderWork[j], orderWork[i]];
+  renderOrderQuiz();
+}
+function shuffleOrder() { orderWork = _shuffle([...orderWork]); renderOrderQuiz(); }
+let orderCleared = false, orderClearedToday = false;
+function checkOrder() {
+  orderPhase = 'result';
+  orderCleared = false; orderClearedToday = false;
+  const deck = decks.find(d => d.id === orderDeckId);
+  if (deck && orderWork.length) {
+    const correctPos = {}; deck.items.forEach((it, i) => correctPos[it.id] = i);
+    const correct = orderWork.filter((it, i) => correctPos[it.id] === i).length;
+    if (correct === orderWork.length) { orderCleared = true; orderClearedToday = recordClear(deck); }
+  }
+  renderOrderQuiz();
+}
+
+let _dragFrom = null;
+function enableDrag(row, i) {
+  row.draggable = true;
+  row.addEventListener('dragstart', e => { _dragFrom = i; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+  row.addEventListener('dragend',   () => { row.classList.remove('dragging'); _dragFrom = null; document.querySelectorAll('.order-item.dragover').forEach(el => el.classList.remove('dragover')); });
+  row.addEventListener('dragover',  e => { e.preventDefault(); row.classList.add('dragover'); });
+  row.addEventListener('dragleave', () => row.classList.remove('dragover'));
+  row.addEventListener('drop', e => {
+    e.preventDefault();
+    row.classList.remove('dragover');
+    if (_dragFrom === null || _dragFrom === i) return;
+    const [moved] = orderWork.splice(_dragFrom, 1);
+    orderWork.splice(i, 0, moved);
+    renderOrderQuiz();
+  });
+}
+
+function speakOrder() {
+  speakSequence(orderWork.map(it => it.reading || it.name));
+}
+
+function openOrderEditor(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck || !deck.orderMode) return;
+  orderDeckId = deckId;
+  document.getElementById('order-deck-name').textContent = deck.name + '（編集）';
+  goTo('order');
+  renderOrderEditor();
+}
+
+function renderOrderEditor() {
+  const deck = decks.find(d => d.id === orderDeckId);
+  if (!deck) return;
+  document.getElementById('order-badge').textContent  = '編集';
+  document.getElementById('order-plabel').textContent = 'この順番が正解になります';
+  document.getElementById('order-stxt').textContent   = '▲▼ で正しい順に。✎で文言変更';
+  document.getElementById('order-btns').innerHTML = `
+    <button class="btn b-ok" onclick="startOrderQuiz(orderDeckId)">▶ 出題</button>
+    <button class="btn"       onclick="orderAddItem()">＋ 項目追加</button>
+    <button class="btn"       onclick="exportDeckCsv(orderDeckId)">📄 CSV</button>
+  `;
+  const list = document.getElementById('order-list');
+  list.innerHTML = '';
+  list.insertAdjacentHTML('beforeend', clearHistoryHtml(deck));
+  deck.items.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'order-item';
+    row.innerHTML = `
+      <span class="order-pos">${i + 1}</span>
+      <div class="order-name">${it.name}${it.sub ? `<small>${it.sub}</small>` : ''}</div>
+      <button class="td-btn" onclick="orderEditItem(${i})">✎</button>
+      <button class="td-btn del" onclick="orderDelItem(${i})">×</button>
+      <div class="order-moves">
+        <button class="order-move" ${i === 0 ? 'disabled' : ''} onclick="orderMoveItem(${i},-1)">▲</button>
+        <button class="order-move" ${i === deck.items.length - 1 ? 'disabled' : ''} onclick="orderMoveItem(${i},1)">▼</button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function orderMoveItem(i, dir) {
+  const deck = decks.find(d => d.id === orderDeckId); if (!deck) return;
+  const j = i + dir; if (j < 0 || j >= deck.items.length) return;
+  [deck.items[i], deck.items[j]] = [deck.items[j], deck.items[i]];
+  save(); renderOrderEditor();
+}
+function orderAddItem() {
+  const deck = decks.find(d => d.id === orderDeckId); if (!deck) return;
+  showPrompt('項目を追加', '', '項目名', v => {
+    if (!v || !v.trim()) return;
+    deck.items.push({ id: _nextKid++, name: v.trim(), sub: '', img: null });
+    save(); renderOrderEditor();
+  });
+}
+function orderEditItem(i) {
+  const deck = decks.find(d => d.id === orderDeckId); if (!deck) return;
+  const it = deck.items[i]; if (!it) return;
+  showPrompt('項目を編集', it.name, '項目名', v => {
+    if (v === null) return;
+    it.name = (v || '').trim() || it.name;
+    save(); renderOrderEditor();
+  });
+}
+function orderDelItem(i) {
+  const deck = decks.find(d => d.id === orderDeckId); if (!deck) return;
+  const it = deck.items[i]; if (!it) return;
+  showConfirm('項目を削除', `「${it.name}」を削除しますか？`, '削除', 'キャンセル', () => {
+    deck.items.splice(i, 1);
+    save(); renderOrderEditor();
+  });
+}
+
+let bulkTargetDeckId = null; // null=新規作成 / それ以外=既存デッキの一括編集
+
+function openBulkDialog() {
+  bulkTargetDeckId = null;
+  document.getElementById('bulk-title').textContent = 'かんたん一括作成（英単語など）';
+  document.getElementById('bulk-confirm-btn').textContent = 'デッキを作成';
+  document.getElementById('bulk-warn').style.display = 'none';
+  document.getElementById('inp-bname').value = '';
+  document.getElementById('inp-blines').value = '';
+  document.getElementById('bulk-preview').textContent = '';
+  bulkCols = ['英単語', '意味', '例文'];
+  renderBulkCols();
+  openOv('ov-bulk');
+  setTimeout(() => document.getElementById('inp-bname').focus(), 50);
+}
+
+// 既存デッキを一括編集（現在のカードをテキスト化して読み込む）
+function openBulkEditDialog(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck || deck.orderMode) return;
+  bulkTargetDeckId = deckId;
+  document.getElementById('bulk-title').textContent = `一括編集（${deck.name}）`;
+  document.getElementById('bulk-confirm-btn').textContent = 'この内容で更新';
+  document.getElementById('inp-bname').value = deck.name;
+
+  bulkCols = deck.columns.map(c => c.label);
+  if (!bulkCols.length) bulkCols = ['列1', '列2'];
+  renderBulkCols();
+
+  // セットごとに1行、区切りは ｜。セット無しカードは単独行
+  const pidOrder = [];
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer && !pidOrder.includes(c.answer)) pidOrder.push(c.answer); }));
+  const lines = [];
+  pidOrder.forEach(pid => {
+    const parts = deck.columns.map(col => { const c = col.cards.find(x => x.answer === pid); return c ? c.name : ''; });
+    lines.push(parts.join('｜'));
+  });
+  // orphan（セット未設定）カード
+  deck.columns.forEach((col, ci) => col.cards.forEach(c => {
+    if (c.answer) return;
+    const parts = deck.columns.map(() => '');
+    parts[ci] = c.name;
+    lines.push(parts.join('｜'));
+  }));
+  document.getElementById('inp-blines').value = lines.join('\n');
+
+  // 画像・読み仮名があれば警告（テキスト編集では保持されない）
+  const imgCount = deck.columns.reduce((s, col) => s + col.cards.filter(c => c.img).length, 0);
+  const readCount = deck.columns.reduce((s, col) => s + col.cards.filter(c => c.reading).length, 0);
+  const warn = document.getElementById('bulk-warn');
+  if (imgCount || readCount) {
+    warn.style.display = 'block';
+    const parts = [];
+    if (imgCount)  parts.push(`画像付き${imgCount}枚`);
+    if (readCount) parts.push(`読み仮名付き${readCount}枚`);
+    warn.textContent = `⚠ このデッキには${parts.join('・')}のカードがあります。一括編集で更新すると画像・読み仮名は外れます（文字は保持）。必要なら更新後に個別編集で付け直してください。`;
+  } else {
+    warn.style.display = 'none';
+  }
+
+  updateBulkPreview();
+  openOv('ov-bulk');
+  setTimeout(() => document.getElementById('inp-blines').focus(), 50);
+}
+
+function renderBulkCols() {
+  const box = document.getElementById('bulk-cols');
+  box.innerHTML = '';
+  bulkCols.forEach((label, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;align-items:center;';
+    const inp = document.createElement('input');
+    inp.value = label;
+    inp.placeholder = `列${i + 1}の名前`;
+    inp.maxLength = 20;
+    inp.style.cssText = 'flex:1;';
+    inp.oninput = () => { bulkCols[i] = inp.value; updateBulkPreview(); };
+    row.appendChild(inp);
+    if (bulkCols.length > 2) {
+      const del = document.createElement('button');
+      del.className = 'btn b-danger';
+      del.textContent = '×';
+      del.title = 'この列を削除';
+      del.style.cssText = 'padding:6px 11px;font-size:12px;';
+      del.onclick = () => { bulkCols.splice(i, 1); renderBulkCols(); updateBulkPreview(); };
+      row.appendChild(del);
+    }
+    box.appendChild(row);
+  });
+}
+
+function addBulkCol() {
+  if (bulkCols.length >= 6) { showAlert('列は最大6つまでです', ''); return; }
+  bulkCols.push('');
+  renderBulkCols();
+  updateBulkPreview();
+  const inputs = document.querySelectorAll('#bulk-cols input');
+  inputs[inputs.length - 1].focus();
+}
+
+// 行 → [列1, 列2, 列3?] に分解。優先度: ｜/| → タブ → カンマ
+function parseBulkLine(line) {
+  const t = line.trim();
+  if (!t) return null;
+  let parts;
+  if (/[|｜]/.test(t))      parts = t.split(/[|｜]/);
+  else if (/\t/.test(t))    parts = t.split(/\t/);
+  else                      parts = t.split(/[,，、]/);
+  parts = parts.map(s => s.trim());
+  if (!parts[0]) return null;
+  return parts;
+}
+
+function parseBulkLines() {
+  return document.getElementById('inp-blines').value
+    .split(/\r?\n/).map(parseBulkLine).filter(Boolean);
+}
+
+// グループ数がパレットを超えたら色を自動生成（黄金角で色相を分散）
+function updateBulkPreview() {
+  const rows = parseBulkLines();
+  const el = document.getElementById('bulk-preview');
+  if (!rows.length) { el.textContent = ''; return; }
+  const nCols = bulkCols.length;
+  const short = rows.filter(r => r.filter(Boolean).length < 2).length;
+  const over  = rows.filter(r => r.length > nCols).length;
+  el.textContent = `${rows.length}セット（${nCols}列）を作成します`
+    + (short ? `／⚠ ${short}行は2列目が空です` : '')
+    + (over  ? `／⚠ ${over}行は列数より項目が多く、はみ出た分は無視されます` : '');
+}
+
+function confirmBulk() {
+  const rows = parseBulkLines();
+  if (!rows.length) { showModal('入力がありません', '1行に1セット入力してください。', [{label:'OK', cls:'b-ok'}]); return; }
+  const labels = bulkCols.map((l, i) => l.trim() || `列${i + 1}`);
+
+  // ── 既存デッキの一括編集（置き換え）──
+  if (bulkTargetDeckId != null) {
+    const deck = decks.find(d => d.id === bulkTargetDeckId);
+    if (!deck) { bulkTargetDeckId = null; return; }
+    const name = document.getElementById('inp-bname').value.trim() || deck.name;
+    deck.name = name;
+    deck.columns = labels.map(label => ({ id: _nextCid++, label, cards: [] }));
+    deck.setNames = {};
+    rows.forEach(parts => {
+      const filled = labels.map((_, ci) => parts[ci]).filter(Boolean);
+      // 1行に2つ以上あればセット化、1つだけならセット無し（orphan）
+      const pid = filled.length >= 2 ? 'grp' + (_nextGid++) : null;
+      labels.forEach((_, ci) => {
+        const text = parts[ci];
+        if (!text) return;
+        deck.columns[ci].cards.push({ id: _nextKid++, name: text, sub: '', img: null, answer: pid, userColor: null });
+      });
+    });
+    deck.columns.forEach(col => {
+      for (let i = col.cards.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [col.cards[i], col.cards[j]] = [col.cards[j], col.cards[i]]; }
+    });
+    save();
+    closeOv('ov-bulk');
+    bulkTargetDeckId = null;
+    goTo('decks');
+    openDeckDetail(deck.id);
+    return;
+  }
+
+  const name = document.getElementById('inp-bname').value.trim() || '新しいデッキ';
+
+  const deck = createDeck(name, `${rows.length}セット・一括作成`);
+  deck.columns = labels.map(label => ({ id: _nextCid++, label, cards: [] }));
+
+  rows.forEach((parts, i) => {
+    const pid = 'grp' + (_nextGid++);
+    labels.forEach((_, ci) => {
+      const text = parts[ci];
+      if (!text) return; // 空セルはカードを作らない
+      deck.columns[ci].cards.push({ id: _nextKid++, name: text, sub: '', answer: pid, userColor: null });
+    });
+  });
+
+  // 各列をシャッフルして正解が横一列に並ばないようにする
+  deck.columns.forEach(col => {
+    for (let i = col.cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [col.cards[i], col.cards[j]] = [col.cards[j], col.cards[i]];
+    }
+  });
+
+  save();
+  closeOv('ov-bulk');
+  startDeckQuiz(deck.id);
+}
+
+// ══════════════════════════════════════════
+//  OPEN DECK / START QUIZ
+// ══════════════════════════════════════════
+function openDeck(deckId) {
+  activeQuiz = null;
+  currentDeckId = deckId;
+  quizMode = 'setup';
+  document.getElementById('quiz-deck-name').textContent = currentDeck().name;
+  goTo('quiz');
+  selectedCard = null; doneOrder = []; applyModeUI(); renderQuiz(); updateStatus();
+}
+
+function newDeckAndStart() {
+  const d = createDeck('新しいデッキ', '');
+  openDeck(d.id);
+}
+
+function startDeckQuiz(deckId) {
+  const deck = decks.find(d => d.id === deckId);
+  if (!deck) return;
+  const hasAnswer = deck.columns.some(c => c.cards.some(card => card.answer));
+  if (!hasAnswer) { showAlert('正解未設定', '先に設定モードで正解を登録してください。'); openDeck(deckId); return; }
+  activeQuiz = null;
+  currentDeckId = deckId;
+  deck.columns.forEach(col => col.cards.forEach(c => c.userColor = null));
+  quizMode = 'quiz';
+  document.getElementById('quiz-deck-name').textContent = deck.name;
+  goTo('quiz');
+  selectedCard = null; doneOrder = []; applyModeUI(); renderQuiz(); updateStatus();
+}
+
+// ══════════════════════════════════════════
+//  RANDOM QUIZ（デッキから10問・正解が場にないこともある）
+// ══════════════════════════════════════════
+let randomSourceId = null;
+let randomCount = 10;
+
+// 出題数を選ぶダイアログ。使える問題数に応じて選択肢を出す
+function openRandomDialog(deckId) {
+  const src = decks.find(d => d.id === deckId);
+  if (!src) return;
+  // 1列目を含む正解セット数を数える
+  const setMap = new Map();
+  src.columns.forEach((col, ci) => col.cards.forEach(card => {
+    if (!card.answer) return;
+    if (!setMap.has(card.answer)) setMap.set(card.answer, new Set());
+    setMap.get(card.answer).add(ci);
+  }));
+  const promptable = [...setMap.values()].filter(s => s.size >= 2 && s.has(0)).length;
+  if (promptable < 2) {
+    showAlert('出題できません', '出題するには、1列目を含む正解セットが2つ以上必要です。');
+    return;
+  }
+  const box = document.getElementById('random-count-btns');
+  box.innerHTML = '';
+  const options = [5, 10, 20].filter(n => n <= promptable);
+  if (!options.includes(promptable)) options.push(promptable); // 全問オプション
+  [...new Set(options)].sort((a, b) => a - b).forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'btn b-quiz';
+    btn.style.cssText = 'flex:1;font-size:14px;padding:12px 0;';
+    btn.textContent = n >= promptable ? `全${n}問` : `${n}問`;
+    btn.onclick = () => { closeOv('ov-random'); startRandomQuiz(deckId, n); };
+    box.appendChild(btn);
+  });
+  openOv('ov-random');
+}
+
+function startRandomQuiz(deckId, count) {
+  count = count || randomCount || 10;
+  randomCount = count;
+  const src = decks.find(d => d.id === deckId);
+  if (!src) return;
+
+  // 正解セット（2列以上にまたがるもの）を収集
+  const setMap = new Map();
+  src.columns.forEach((col, ci) => col.cards.forEach(card => {
+    if (!card.answer) return;
+    if (!setMap.has(card.answer)) setMap.set(card.answer, []);
+    setMap.get(card.answer).push({ card, ci });
+  }));
+  const sets = [...setMap.values()].filter(arr => new Set(arr.map(x => x.ci)).size >= 2);
+  // 列0にカードを持つセットだけを「問題」に使える
+  const promptable = sets.filter(arr => arr.some(x => x.ci === 0));
+  if (promptable.length < 2) {
+    showAlert('出題できません', '出題するには、1列目を含む正解セットが2つ以上必要です。');
+    return;
+  }
+
+  const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const clone = c => ({ id: c.id, name: c.name, sub: c.sub, img: c.img, answer: c.answer, userColor: null });
+
+  shuffle(promptable);
+  const chosen = promptable.slice(0, Math.min(count, promptable.length));
+  // 6割前後を「解ける（相手が場にある）」に。最低1つは相手なし、最低1つは相手ありにする
+  shuffle(chosen);
+  let solvableN = Math.round(chosen.length * 0.6);
+  solvableN = Math.max(1, Math.min(chosen.length - 1, solvableN));
+  const solvable = new Set(chosen.slice(0, solvableN).map(a => a.find(x => x.ci === 0).card.id));
+
+  const nCols = src.columns.length;
+  const colCards = src.columns.map(() => []);
+  const usedPids = new Set();
+
+  // 各問題の列0カードを配置
+  chosen.forEach(arr => {
+    const p = arr.find(x => x.ci === 0);
+    colCards[0].push(clone(p.card));
+    usedPids.add(p.card.answer);
+    // 解けるものは相手カードも各列に配置
+    if (solvable.has(p.card.id)) {
+      arr.forEach(x => { if (x.ci !== 0) colCards[x.ci].push(clone(x.card)); });
+    }
+  });
+
+  // デコイ（相手のいないダミー）を答え列に追加。各デコイは固有pidで単独＝つなげない
+  const decoySets = sets.filter(arr => !arr.some(x => usedPids.has(x.card.answer)));
+  shuffle(decoySets);
+  for (let j = 1; j < nCols; j++) {
+    const target = colCards[0].length; // 列0と同じくらいの枚数に
+    let di = 0;
+    while (colCards[j].length < target && di < decoySets.length) {
+      const arr = decoySets[di++];
+      const inCol = arr.find(x => x.ci === j);
+      if (inCol && !usedPids.has(inCol.card.answer)) {
+        colCards[j].push(clone(inCol.card));
+        usedPids.add(inCol.card.answer); // 同じセットの別カードは入れない（同列重複回避）
+      }
+    }
+  }
+
+  // 各列シャッフル
+  colCards.forEach(cards => shuffle(cards));
+
+  activeQuiz = {
+    id: -1,
+    name: src.name + '（ランダム10問）',
+    randomMode: true,
+    columns: src.columns.map((col, ci) => ({ id: 10000 + ci, label: col.label, cards: colCards[ci] })),
+  };
+  randomSourceId = deckId;
+  currentDeckId = deckId;
+  quizMode = 'quiz';
+  document.getElementById('quiz-deck-name').textContent = activeQuiz.name;
+  goTo('quiz');
+  selectedCard = null; doneOrder = []; applyModeUI(); renderQuiz(); updateStatus();
+}
+
+// ══════════════════════════════════════════
+//  QUIZ MODES
+// ══════════════════════════════════════════
+let quizMode = 'setup';
+
+function startQuiz() {
+  const deck = currentDeck(); if (!deck) return;
+  const unset = [];
+  deck.columns.forEach(col => col.cards.forEach(card => { if (!card.answer) unset.push(`${col.label}「${card.name}」`); }));
+  if (unset.length > 0) {
+    showAlert('正解未設定のカードがあります', unset.join('、') + ' を線でつないで正解を設定してください。');
+    highlightUnsetCards();
+    return;
+  }
+  deck.columns.forEach(col => col.cards.forEach(c => c.userColor = null));
+  selectedCard = null; doneOrder = [];
+  quizMode = 'quiz'; applyModeUI(); renderQuiz();
+}
+
+function checkAnswers() {
+  const deck = currentDeck(); if (!deck) return;
+  if (deck.randomMode) {
+    // 選ばなかった（繋いでもいない）カードは自動的に「繋がない」にする
+    deck.columns.forEach(col => col.cards.forEach(c => { if (!c.userColor) c.noMatch = true; }));
+    _executeCheckAnswers();
+    return;
+  }
+  const unanswered = [];
+  deck.columns.forEach(col => col.cards.forEach(card => {
+    if (card.answer && !card.userColor) unanswered.push(card.name);
+  }));
+  if (unanswered.length > 0) {
+    showConfirm(
+      `未回答が ${unanswered.length} 件あります`,
+      `このまま答え合わせしますか？\n未回答は不正解として扱われます。`,
+      'このまま答え合わせ', '戻って回答する',
+      () => _executeCheckAnswers()
+    );
+  } else {
+    _executeCheckAnswers();
+  }
+}
+
+function _executeCheckAnswers() {
+  quizMode = 'result'; applyModeUI(); renderQuiz();
+  showResultOverlay();
+}
+
+function retryQuiz() {
+  const deck = currentDeck(); if (!deck) return;
+  deck.columns.forEach(col => col.cards.forEach(c => { c.userColor = null; c.noMatch = false; }));
+  selectedCard = null; doneOrder = [];
+  quizMode = 'quiz'; applyModeUI(); renderQuiz();
+}
+
+function backToSetup() { selectedCard = null; doneOrder = []; quizMode = 'setup'; applyModeUI(); renderQuiz(); }
+
+function highlightUnsetCards() {
+  const deck = currentDeck(); if (!deck) return;
+  deck.columns.forEach(col => col.cards.forEach((card, ki) => {
+    if (!card.answer) {
+      const el = document.getElementById(`card-${col.id}-${ki}`);
+      if (el) {
+        el.style.outline = '2px solid var(--ng)';
+        el.style.boxShadow = '0 0 12px rgba(255,92,92,.4)';
+        setTimeout(() => { el.style.outline = ''; el.style.boxShadow = ''; }, 3000);
+      }
+    }
+  }));
+}
+
+// ══════════════════════════════════════════
+//  APPLY MODE UI
+// ══════════════════════════════════════════
+function applyModeUI() {
+  const m = quizMode;
+  const badge = document.getElementById('mode-badge');
+  badge.className = 'mode-badge ' + m;
+  badge.textContent = m === 'setup' ? '設定モード' : m === 'quiz' ? '回答モード' : '結果表示';
+  document.getElementById('pbar').style.display  = m === 'result' ? 'none' : 'flex';
+  document.getElementById('plabel').textContent  = m === 'setup' ? '2枚タップで正解の線をつなぐ' : '2枚タップで線をつなぐ';
+  document.getElementById('cpanel-title').textContent = m === 'setup' ? '正解一覧' : m === 'quiz' ? '回答一覧' : '答え合わせ結果';
+  document.getElementById('fab').classList.remove('show');
+
+  const btns = document.getElementById('mode-btns');
+  const rnd = currentDeck() && currentDeck().randomMode;
+  if (m === 'setup') {
+    btns.innerHTML = `
+      <button class="btn b-quiz"   onclick="startQuiz()">▶ 出題</button>
+      <button class="btn"          onclick="shuffleCards()">🔀 シャッフル</button>
+      <button class="btn b-danger" onclick="clearAll()">リセット</button>
+      <button class="btn"          onclick="speakAll()">🔊</button>
+    `;
+  } else if (m === 'quiz') {
+    if (rnd) {
+      btns.innerHTML = `
+        <button class="btn b-ok" onclick="checkAnswers()">✓ 答え合わせ</button>
+        <button class="btn"      onclick="startRandomQuiz(randomSourceId)">🎲 別の${randomCount}問</button>
+        <button class="btn"      onclick="speakAll()">🔊</button>
+      `;
+    } else {
+      btns.innerHTML = `
+        <button class="btn b-ok"    onclick="checkAnswers()">✓ 答え合わせ</button>
+        <button class="btn b-setup" onclick="backToSetup()">✎ 設定へ</button>
+        <button class="btn"         onclick="shuffleCards()">🔀 シャッフル</button>
+        <button class="btn"         onclick="speakAll()">🔊</button>
+      `;
+    }
+  } else {
+    btns.innerHTML = rnd ? `
+      <button class="btn b-quiz" onclick="retryQuiz()">↻ もう一度</button>
+      <button class="btn"        onclick="startRandomQuiz(randomSourceId)">🎲 別の${randomCount}問</button>
+    ` : '';
+  }
+
+  updateStatus();
+  renderMobileBar();
+}
+
+// ══════════════════════════════════════════
+//  RENDER QUIZ COLUMNS
+// ══════════════════════════════════════════
+function renderQuiz() {
+  const deck = currentDeck(); if (!deck) return;
+  const root  = document.getElementById('columns');
+  const m     = quizMode;
+  const isMob = window.innerWidth <= 600;
+  root.innerHTML = '';
+
+  deck.columns.forEach((col, ci) => {
+    const wrapper = document.createElement('div');
+    if (isMob) wrapper.className = 'col-section';
+
+    const colEl = document.createElement('div');
+    colEl.className = 'column';
+
+    // Column header
+    const hdr = document.createElement('div');
+    hdr.className = 'col-hdr';
+    const label = document.createElement('span');
+    label.className = 'col-hdr-label' + (m === 'setup' ? ' editable' : '');
+    label.textContent = col.label;
+    label.title = m === 'setup' ? 'クリックして列名を編集' : '';
+    if (m === 'setup') label.onclick = () => openColDialog(ci);
+    hdr.appendChild(label);
+    if (m === 'setup') {
+      const addBtn = document.createElement('span');
+      addBtn.className = 'col-add';
+      addBtn.textContent = '＋';
+      addBtn.onclick = () => openAddCard(ci);
+      hdr.appendChild(addBtn);
+    }
+    colEl.appendChild(hdr);
+
+    // Cards
+    const cardsEl = document.createElement('div');
+    cardsEl.className = 'cards';
+    col.cards.forEach((card, ki) => {
+      const connected = m === 'setup' ? card.answer : m === 'quiz' ? card.userColor : (card.userColor || card.answer);
+      let resultClass = '', iconEl = '';
+      if (m === 'result') {
+        if (deck.randomMode) {
+          if (isCardCorrect(card, deck)) resultClass = 'correct';
+          else resultClass = card.userColor ? 'wrong' : 'unanswered';
+        } else if (card.answer) {
+          if      (isCardCorrect(card, deck)) resultClass = 'correct';
+          else if (card.userColor)            resultClass = 'wrong';
+          else                                resultClass = 'unanswered';
+        }
+      }
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'card ' + resultClass;
+      cardEl.id = `card-${col.id}-${ki}`;
+      cardEl.style.borderLeftColor = connected ? 'var(--accent)' : 'var(--border)';
+      if (selectedCard && selectedCard.ci === ci && selectedCard.ki === ki) cardEl.classList.add('selected');
+
+      const icons = m === 'setup' ? `
+        <div class="card-icons">
+          <span class="card-icon"     title="編集" onclick="openEditCard(event,${ci},${ki})">✎</span>
+          <span class="card-icon"     title="上へ" onclick="moveCard(event,${ci},${ki},-1)">↑</span>
+          <span class="card-icon"     title="下へ" onclick="moveCard(event,${ci},${ki},1)">↓</span>
+          <span class="card-icon del" title="削除" onclick="delCard(event,${ci},${ki})">×</span>
+        </div>` : '';
+
+      const noMatchUI = (deck.randomMode && m === 'quiz') ? `
+        <button class="card-nomatch-btn ${card.noMatch ? 'on' : ''}" onclick="event.stopPropagation();toggleNoMatch(${ci},${ki})">${card.noMatch ? '✓ 繋がない' : '繋がない'}</button>
+      ` : '';
+
+      cardEl.innerHTML = `
+        <div class="card-body">
+          ${card.img ? `<img class="card-img" src="${card.img}" alt="" loading="lazy"/>` : ''}
+          <div class="card-name">${card.name}</div>
+          ${card.sub ? `<div class="card-sub">${card.sub}</div>` : ''}
+        </div>
+        ${noMatchUI}
+        <div class="card-result-icon"></div>
+        ${icons}
+      `;
+      if (deck.randomMode && card.noMatch && m === 'quiz') cardEl.classList.add('nomatch');
+
+      // Show correct answer hint on wrong cards in result mode
+      if (m === 'result' && !isCardCorrect(card, deck) && (card.answer || deck.randomMode)) {
+        const expectConnect = card.answer && shownGroupSize(card, deck) >= 2;
+        const hint = document.createElement('div');
+        hint.className = 'card-correct-hint';
+        if (deck.randomMode && !expectConnect) {
+          hint.textContent = 'つなげないのが正解';
+        } else {
+          const partners = [];
+          deck.columns.forEach((c2, cj) => {
+            if (cj === ci) return;
+            c2.cards.forEach(cc => { if (cc.answer === card.answer) partners.push(cc.name); });
+          });
+          hint.textContent = partners.length ? `正解: ${partners.join(' ↔ ')}` : '正解の相手なし';
+        }
+        cardEl.appendChild(hint);
+      }
+
+      if (m !== 'result') cardEl.onclick = () => handleClick(ci, ki);
+      cardsEl.appendChild(cardEl);
+    });
+    // カード枚数が多いとき、デスクトップでは横方向のサブ列に分割
+    const PER_SUBCOL = 12, MAX_SUBCOL = 3;
+    if (!isMob && col.cards.length > PER_SUBCOL) {
+      const subcols = Math.min(MAX_SUBCOL, Math.ceil(col.cards.length / PER_SUBCOL));
+      const rows = Math.ceil(col.cards.length / subcols);
+      cardsEl.classList.add('cards-grid');
+      cardsEl.style.gridTemplateRows = `repeat(${rows}, min-content)`;
+    }
+    colEl.appendChild(cardsEl);
+
+    if (isMob) {
+      wrapper.appendChild(colEl);
+      if (m === 'setup') {
+        const addArea = document.createElement('div');
+        addArea.className = 'columns-mobile-add';
+        const addBtn = document.createElement('div');
+        addBtn.className = 'add-col-btn';
+        addBtn.style.cssText = 'width:100%;height:36px;font-family:Space Mono,monospace;font-size:11px;letter-spacing:1px;';
+        addBtn.textContent = '＋ カード追加';
+        addBtn.onclick = () => openAddCard(ci);
+        addArea.appendChild(addBtn);
+        wrapper.appendChild(addArea);
+      }
+      root.appendChild(wrapper);
+    } else {
+      root.appendChild(colEl);
+    }
+  });
+
+  // Add column button (setup mode only)
+  if (m === 'setup') {
+    const addColBtn = document.createElement('div');
+    addColBtn.className = 'add-col-btn';
+    addColBtn.textContent = '+';
+    addColBtn.onclick = addColumn;
+    if (!isMob) {
+      root.appendChild(addColBtn);
+    } else {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'padding:8px 16px 20px;';
+      addColBtn.style.cssText = 'width:100%;height:40px;font-family:Space Mono,monospace;font-size:10px;letter-spacing:2px;';
+      addColBtn.textContent = '＋ 列を追加';
+      wrap.appendChild(addColBtn);
+      root.appendChild(wrap);
+    }
+  }
+
+  renderList();
+  requestAnimationFrame(drawLines);
+  // 画像の読み込み完了でカードの高さが変わるため線を引き直す
+  document.querySelectorAll('#columns img.card-img').forEach(img => {
+    if (!img.complete) img.addEventListener('load', () => requestAnimationFrame(drawLines), { once: true });
+  });
+}
+
+// ══════════════════════════════════════════
+//  LINE CONNECT（2枚タップで線をつなぐ）
+// ══════════════════════════════════════════
+let selectedCard = null; // {ci, ki}
+
+function newGroupPid() {
+  return 'grp' + (_nextGid++);
+}
+
+// ランダム出題: カードを「繋がない」に仕分け（もう一度押すと解除）
+function toggleNoMatch(ci, ki) {
+  const deck = currentDeck(); if (!deck || !deck.randomMode) return;
+  const card = deck.columns[ci].cards[ki]; if (!card) return;
+  if (card.noMatch) {
+    card.noMatch = false;
+  } else {
+    // 既に線でつながっていれば外してから「繋がない」にする
+    if (card.userColor) {
+      deck.columns.forEach(col => col.cards.forEach(c => { if (c.userColor === card.userColor) c.userColor = null; }));
+      dissolveSingletons(deck, 'userColor');
+    }
+    card.noMatch = true;
+    if (selectedCard && selectedCard.ci === ci && selectedCard.ki === ki) selectedCard = null;
+  }
+  hoistCompleted(deck, 'userColor');
+  save(); renderQuiz(); updateStatus();
+}
+
+function handleClick(ci, ki) {
+  const deck = currentDeck(); if (!deck) return;
+  const card  = deck.columns[ci].cards[ki];
+  const field = quizMode === 'setup' ? 'answer' : 'userColor';
+  // 「繋がない」指定のカードをタップしたら、その指定を解除して通常の選択に戻す
+  if (card.noMatch) { card.noMatch = false; }
+
+  // 1枚目の選択
+  if (!selectedCard) {
+    selectedCard = { ci, ki };
+    renderQuiz(); updateStatus(); speakCard(card.reading || card.name);
+    return;
+  }
+  // 同じカード → 選択解除
+  if (selectedCard.ci === ci && selectedCard.ki === ki) {
+    selectedCard = null;
+    renderQuiz(); updateStatus();
+    return;
+  }
+  // 同じ列 → 選択を切り替え
+  if (selectedCard.ci === ci) {
+    selectedCard = { ci, ki };
+    renderQuiz(); updateStatus(); speakCard(card.reading || card.name);
+    return;
+  }
+
+  // 2枚目：別の列 → 接続 / 解除
+  const first = deck.columns[selectedCard.ci].cards[selectedCard.ki];
+  const a = first[field], b = card[field];
+
+  // pidグループの所属カードを {card, colIndex} で列挙
+  const groupCards = pid => {
+    const arr = [];
+    deck.columns.forEach((col, cj) => col.cards.forEach(c => { if (c[field] === pid) arr.push({ c, cj }); }));
+    return arr;
+  };
+
+  if (a && b && a === b) {
+    // すでに同じグループ → 2枚目をグループから外す（線を解除）
+    card[field] = null;
+  } else if (a && b) {
+    // 両方別グループ → 統合。ただし同じ列にカードが重複する場合はブロック
+    const colsA = new Set(groupCards(a).map(x => x.cj));
+    const conflict = groupCards(b).some(x => colsA.has(x.cj));
+    if (conflict) {
+      selectedCard = null;
+      renderQuiz(); updateStatus();
+      showAlert('つなげません', '統合すると同じ列に2枚以上のカードが入ってしまいます。先に既存の線を解除してください。');
+      return;
+    }
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] === b) c[field] = a; }));
+  } else if (a) {
+    // グループaがこの列にすでにカードを持っていたら、そのカードを外して差し替え
+    let swapped = null;
+    deck.columns[ci].cards.forEach(c => { if (c[field] === a) { c[field] = null; swapped = c.name; } });
+    card[field] = a;
+    if (swapped) flashStatus(`「${swapped}」の線を外して付け替えました`);
+  } else if (b) {
+    // 同様に1枚目側の列で差し替え
+    let swapped = null;
+    deck.columns[selectedCard.ci].cards.forEach(c => { if (c[field] === b) { c[field] = null; swapped = c.name; } });
+    first[field] = b;
+    if (swapped) flashStatus(`「${swapped}」の線を外して付け替えました`);
+  } else {
+    const pid = newGroupPid();
+    first[field] = pid; card[field] = pid;
+  }
+
+  dissolveSingletons(deck, field);
+  if (quizMode === 'quiz') hoistCompleted(deck, field);
+  selectedCard = null;
+  save(); renderQuiz(); updateStatus();
+  speakCard(card.reading || card.name);
+}
+
+// 1枚しか属していないグループを解散する（見えない縁取り・誤判定の防止）
+function dissolveSingletons(deck, field) {
+  const count = {};
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c[field]) count[c[field]] = (count[c[field]] || 0) + 1; }));
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] && count[c[field]] === 1) c[field] = null; }));
+}
+
+// 全列そろったセット（完成セット）を各列の先頭へ集める。完成した順に上から並ぶ
+let doneOrder = [];
+function hoistCompleted(deck, field) {
+  const nCols = deck.columns.length;
+  if (nCols < 2) return;
+
+  // 各pidが何列に存在するかを数え、全列そろったものを完成とみなす
+  const cols = {};
+  deck.columns.forEach((col, ci) => col.cards.forEach(c => {
+    if (!c[field]) return;
+    (cols[c[field]] = cols[c[field]] || new Set()).add(ci);
+  }));
+  const complete = Object.keys(cols).filter(pid => cols[pid].size === nCols);
+
+  // 完成が解除されたものを除き、新しく完成したものを末尾に追加（完成順を保持）
+  doneOrder = doneOrder.filter(pid => complete.includes(pid));
+  complete.forEach(pid => { if (!doneOrder.includes(pid)) doneOrder.push(pid); });
+
+  // 各列を並べ替え（完成セットが上、繋がないは最下部、それ以外は元の順序を維持）
+  const rank = c => {
+    if (c.noMatch) return 2e9;                 // 「繋がない」は一番下
+    const i = c[field] ? doneOrder.indexOf(c[field]) : -1;
+    return i === -1 ? 1e9 : i;                 // 完成セットは上、途中・未着手は中間
+  };
+  deck.columns.forEach(col => col.cards.sort((a, b) => rank(a) - rank(b)));
+}
+
+// SVGで線を描画（renderQuizの後に呼ばれる）
+function drawLines() {
+  const root = document.getElementById('columns');
+  const old  = document.getElementById('link-svg');
+  if (old) old.remove();
+  const deck = currentDeck(); if (!deck || !root) return;
+
+  const m = quizMode;
+  const field = m === 'setup' ? 'answer' : 'userColor';
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'link-svg';
+  svg.setAttribute('width',  root.scrollWidth);
+  svg.setAttribute('height', root.scrollHeight);
+  svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:5;overflow:visible;';
+
+  const rootRect = root.getBoundingClientRect();
+  const rx = r => r.left - rootRect.left + root.scrollLeft;
+  const ry = r => r.top  - rootRect.top  + root.scrollTop;
+
+  // グループ収集
+  const groups = new Map();
+  deck.columns.forEach((col, ci) => col.cards.forEach((card, ki) => {
+    const pid = card[field]; if (!pid) return;
+    if (!groups.has(pid)) groups.set(pid, []);
+    groups.get(pid).push({ ci, ki, card, colId: col.id });
+  }));
+
+  const answerGroups = m === 'result' ? buildAnswerGroups(deck) : null;
+
+  const baseStroke = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3b5bdb';
+  groups.forEach((items, pid) => {
+    items.sort((p, q) => p.ci - q.ci || p.ki - q.ki);
+    let stroke = baseStroke;
+    if (m === 'result') {
+      const uSet = new Set(items.map(i => i.card.id));
+      let ok = false;
+      answerGroups.forEach(aSet => { if (setsEqual(uSet, aSet)) ok = true; });
+      stroke = ok ? '#2ecc71' : '#ff5c5c';
+    }
+
+    for (let i = 0; i < items.length - 1; i++) {
+      const el1 = document.getElementById(`card-${items[i].colId}-${items[i].ki}`);
+      const el2 = document.getElementById(`card-${items[i+1].colId}-${items[i+1].ki}`);
+      if (!el1 || !el2) continue;
+      const r1 = el1.getBoundingClientRect(), r2 = el2.getBoundingClientRect();
+
+      let x1, y1, x2, y2, d;
+      if (Math.abs(r1.left - r2.left) > 10) {
+        // 横並び：右端 ⇄ 左端をベジェ曲線で
+        const [L, R] = r1.left < r2.left ? [r1, r2] : [r2, r1];
+        x1 = rx(L) + L.width; y1 = ry(L) + L.height / 2;
+        x2 = rx(R);           y2 = ry(R) + R.height / 2;
+        const mx = (x1 + x2) / 2;
+        d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+      } else {
+        // 縦積み（モバイル）：下端 ⇄ 上端を左寄りで
+        const [T, B] = r1.top < r2.top ? [r1, r2] : [r2, r1];
+        x1 = rx(T) + 22; y1 = ry(T) + T.height;
+        x2 = rx(B) + 22; y2 = ry(B);
+        d = `M ${x1} ${y1} C ${x1 - 16} ${(y1+y2)/2}, ${x2 - 16} ${(y1+y2)/2}, ${x2} ${y2}`;
+      }
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', stroke);
+      path.setAttribute('stroke-width', '2.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('opacity', '0.85');
+      svg.appendChild(path);
+
+      [[x1, y1], [x2, y2]].forEach(([cx, cy]) => {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3.5');
+        dot.setAttribute('fill', stroke);
+        svg.appendChild(dot);
+      });
+    }
+  });
+
+  root.appendChild(svg);
+}
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('page-quiz')?.classList.contains('active')) requestAnimationFrame(drawLines);
+});
+
+let _flashTimer = null;
+function flashStatus(msg) {
+  const stxt = document.getElementById('stxt');
+  if (!stxt) return;
+  clearTimeout(_flashTimer);
+  _flashTimer = setTimeout(() => { stxt.textContent = msg; 
+    _flashTimer = setTimeout(updateStatus, 2500);
+  }, 0);
+}
+
+function updateStatus() {
+  if (quizMode === 'result') return;
+  const sdot = document.getElementById('sdot'); if (sdot) sdot.style.display = 'none';
+  const stxt = document.getElementById('stxt');
+  const isRnd = currentDeck() && currentDeck().randomMode;
+  if (stxt) stxt.textContent = selectedCard
+    ? '→ つなぐ相手のカードをタップ（同じカードで選択解除）'
+    : (quizMode === 'setup' ? 'カードを2枚タップして正解の線をつなぐ'
+       : isRnd ? '2枚タップでつなぐ／相手がいないカードは「繋がない」'
+       : 'カードを2枚タップして線でつなぐ');
+}
+
+// ══════════════════════════════════════════
+//  CARD / COLUMN OPERATIONS
+// ══════════════════════════════════════════
+let editingCard = null; // { ci, ki } or { ci, ki:null } for new
+let editingColIdx = null;
+
+let editingFrom = 'quiz';
+
+let editingImg = null; // ダイアログ内の画像状態（dataURL または null）
+
+function setImgUI(img) {
+  editingImg = img || null;
+  document.getElementById('cimg-preview').style.display = editingImg ? 'block' : 'none';
+  document.getElementById('cimg-remove').style.display  = editingImg ? 'inline-block' : 'none';
+  if (editingImg) document.getElementById('cimg-thumb').src = editingImg;
+  document.getElementById('cimg-status').textContent = editingImg ? `約${Math.round(editingImg.length * 0.75 / 1024)}KB` : '';
+  document.getElementById('inp-cimg').value = '';
+}
+
+function openAddCard(ci, from = 'quiz') {
+  editingFrom = from;
+  editingCard = { ci, ki: null };
+  document.getElementById('ov-card-title').textContent = 'カード追加';
+  document.getElementById('inp-cname').value = '';
+  document.getElementById('inp-csub').value  = '';
+  document.getElementById('inp-cread').value = '';
+  setImgUI(null);
+  openOv('ov-card');
+  setTimeout(() => document.getElementById('inp-cname').focus(), 50);
+}
+
+function openEditCard(e, ci, ki, from = 'quiz') {
+  e.stopPropagation();
+  editingFrom = from;
+  const card = currentDeck()?.columns[ci]?.cards[ki];
+  if (!card) return;
+  editingCard = { ci, ki };
+  document.getElementById('ov-card-title').textContent = 'カードを編集';
+  document.getElementById('inp-cname').value = card.name;
+  document.getElementById('inp-csub').value  = card.sub || '';
+  document.getElementById('inp-cread').value = card.reading || '';
+  setImgUI(card.img || null);
+  openOv('ov-card');
+  setTimeout(() => document.getElementById('inp-cname').focus(), 50);
+}
+
+// 読み欄の内容（空なら名前）を試聴
+function previewReading() {
+  const read = document.getElementById('inp-cread').value.trim();
+  const name = document.getElementById('inp-cname').value.trim();
+  speakSequence([read || name]);
+}
+
+function removeCardImage() { setImgUI(null); }
+
+// 選択画像を縮小・圧縮してdataURL化（最大320px・JPEG品質0.75）
+function pickCardImage(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  document.getElementById('cimg-status').textContent = '読み込み中…';
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 320;
+      let { width: iw, height: ih } = img;
+      const scale = Math.min(1, MAX / Math.max(iw, ih));
+      const cw = Math.round(iw * scale), ch = Math.round(ih * scale);
+      const cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      setImgUI(cv.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => { document.getElementById('cimg-status').textContent = '画像を読み込めませんでした'; };
+    img.src = reader.result;
+  };
+  reader.onerror = () => { document.getElementById('cimg-status').textContent = '画像を読み込めませんでした'; };
+  reader.readAsDataURL(file);
+}
+
+function confirmCard() {
+  const name = document.getElementById('inp-cname').value.trim(); if (!name) return;
+  const sub  = document.getElementById('inp-csub').value.trim();
+  const reading = document.getElementById('inp-cread').value.trim();
+  const deck = currentDeck(); if (!deck) return;
+  let rollback;
+  if (editingCard.ki === null) {
+    deck.columns[editingCard.ci].cards.push({ id: _nextKid++, name, sub, reading, img: editingImg, answer: null, userColor: null });
+    rollback = () => deck.columns[editingCard.ci].cards.pop();
+  } else {
+    const card = deck.columns[editingCard.ci].cards[editingCard.ki];
+    const prev = { name: card.name, sub: card.sub, reading: card.reading, img: card.img };
+    card.name = name; card.sub = sub; card.reading = reading; card.img = editingImg;
+    rollback = () => Object.assign(card, prev);
+  }
+  if (!save()) {
+    rollback();
+    save();
+    showAlert('保存できません', '保存容量の上限に達しました。画像を減らすか、不要なデッキを削除してください。');
+    return;
+  }
+  closeOv('ov-card'); refreshAfterCardEdit();
+}
+
+function refreshAfterCardEdit() {
+  if (editingFrom === 'detail') renderDeckDetail(detailDeckId);
+  else renderQuiz();
+}
+
+function delCard(e, ci, ki) {
+  e.stopPropagation();
+  const deck = currentDeck(); if (!deck) return;
+  deck.columns[ci].cards.splice(ki, 1);
+  save(); refreshAfterCardEdit();
+}
+
+// セット名（ユーザー指定があればそれを、なければ「セット N」）
+function setLabel(deck, pid, gi) {
+  const custom = deck.setNames && deck.setNames[pid];
+  return (custom && custom.trim()) ? custom.trim() : `セット ${gi + 1}`;
+}
+
+function renameSet(deckId, pid, name) {
+  const deck = decks.find(d => d.id === deckId); if (!deck) return;
+  deck.setNames = deck.setNames || {};
+  const v = (name || '').trim();
+  if (v) deck.setNames[pid] = v; else delete deck.setNames[pid];
+  save();
+  renderDeckDetail(deckId);
+}
+
+function detailClearSet(deckId, pid) {
+  const deck = decks.find(d => d.id === deckId); if (!deck) return;
+  const nm = (deck.setNames && deck.setNames[pid]) || null;
+  showConfirm('セットを解除', `${nm ? '「' + nm + '」' : 'このセット'}の組み合わせを解除します（カード自体は残ります）。`, '解除する', 'キャンセル', () => {
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer === pid) c.answer = null; }));
+    if (deck.setNames) delete deck.setNames[pid];
+    save();
+    renderDeckDetail(deckId);
+  });
+}
+
+// デッキ詳細ページからの編集用ラッパー
+function detailSetAnswer(ci, ki, value) {
+  currentDeckId = detailDeckId;
+  const deck = currentDeck(); if (!deck) return;
+  const card = deck.columns[ci]?.cards[ki]; if (!card) return;
+
+  if (value === '') {
+    card.answer = null;
+  } else if (value === '__new') {
+    card.answer = newGroupPid();
+  } else {
+    // 同じ列に同じセットのカードが既にあれば拒否（1セット各列1枚のルール）
+    const dupe = deck.columns[ci].cards.some(c => c !== card && c.answer === value);
+    if (dupe) {
+      showAlert('設定できません', 'このセットには同じ列のカードがすでに入っています。1つのセットに入れられるのは各列1枚までです。');
+      renderDeckDetail(detailDeckId);
+      return;
+    }
+    card.answer = value;
+  }
+  save();
+  renderDeckDetail(detailDeckId);
+}
+
+function detailEditCard(ci, ki) {
+  currentDeckId = detailDeckId;
+  openEditCard({ stopPropagation(){} }, ci, ki, 'detail');
+}
+function detailAddCard(ci) {
+  currentDeckId = detailDeckId;
+  openAddCard(ci, 'detail');
+}
+function detailDelCard(ci, ki) {
+  currentDeckId = detailDeckId;
+  const deck = currentDeck(); if (!deck) return;
+  const card = deck.columns[ci]?.cards[ki]; if (!card) return;
+  editingFrom = 'detail';
+  showConfirm('カードを削除', `「${card.name}」を削除しますか？つながっている線も外れます。`, '削除', 'キャンセル', () => {
+    deck.columns[ci].cards.splice(ki, 1);
+    save(); renderDeckDetail(detailDeckId);
+  });
+}
+
+function moveCard(e, ci, ki, dir) {
+  e.stopPropagation();
+  const deck = currentDeck(); if (!deck) return;
+  const cards = deck.columns[ci].cards;
+  const ni = ki + dir;
+  if (ni < 0 || ni >= cards.length) return;
+  [cards[ki], cards[ni]] = [cards[ni], cards[ki]];
+  save(); renderQuiz();
+}
+
+function addColumn() {
+  document.getElementById('inp-addcol').value = '';
+  openOv('ov-addcol');
+  setTimeout(() => document.getElementById('inp-addcol').focus(), 50);
+}
+
+function confirmAddColumn() {
+  const name = document.getElementById('inp-addcol').value.trim();
+  if (!name) return;
+  const deck = currentDeck(); if (!deck) return;
+  deck.columns.push({ id: _nextCid++, label: name, cards: [] });
+  save(); closeOv('ov-addcol'); renderQuiz();
+}
+
+function openColDialog(ci) {
+  editingColIdx = ci;
+  const deck = currentDeck(); if (!deck) return;
+  document.getElementById('ov-col-title').textContent  = `「${deck.columns[ci].label}」を編集`;
+  document.getElementById('inp-colname').value          = deck.columns[ci].label;
+  document.getElementById('ov-col-del-btn').style.display = 'block';
+  openOv('ov-col');
+  setTimeout(() => document.getElementById('inp-colname').focus(), 50);
+}
+
+function confirmColRename() {
+  const name = document.getElementById('inp-colname').value.trim(); if (!name) return;
+  const deck = currentDeck(); if (!deck) return;
+  deck.columns[editingColIdx].label = name;
+  save(); closeOv('ov-col'); renderQuiz();
+}
+
+function confirmColDelete() {
+  const deck = currentDeck(); if (!deck) return;
+  const colName = deck.columns[editingColIdx]?.label || 'この列';
+  showConfirm(`「${colName}」を削除`, '列とすべてのカードが削除されます。',
+    '削除する', 'キャンセル',
+    () => { deck.columns.splice(editingColIdx, 1); save(); closeOv('ov-col'); renderQuiz(); }
+  );
+}
+
+function shuffleCards() {
+  const deck = currentDeck(); if (!deck) return;
+  // Fisher-Yates shuffle each column independently
+  deck.columns.forEach(col => {
+    const arr = col.cards;
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  });
+  save(); renderQuiz();
+}
+
+function clearAll() {
+  showConfirm('すべての線をリセット', '設定した正解の線をすべて外します。',
+    'リセットする', 'キャンセル',
+    () => {
+      const deck = currentDeck(); if (!deck) return;
+      deck.columns.forEach(col => col.cards.forEach(c => { c.answer = null; c.userColor = null; }));
+      save(); renderQuiz();
+    }
+  );
+}
+
+// ══════════════════════════════════════════
+//  OVERLAY HELPERS
+// ══════════════════════════════════════════
+const openOv  = id => document.getElementById(id).classList.add('show');
+const closeOv = id => document.getElementById(id).classList.remove('show');
+
+document.querySelectorAll('.overlay, .modal-overlay').forEach(ov =>
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); })
+);
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.overlay.show, .modal-overlay.show, .result-overlay.show')
+      .forEach(o => o.classList.remove('show'));
+  }
+  if (e.key === 'Enter') {
+    if      (document.getElementById('ov-card').classList.contains('show'))    confirmCard();
+    else if (document.getElementById('ov-deck').classList.contains('show'))    confirmDeck();
+    else if (document.getElementById('ov-col').classList.contains('show'))     confirmColRename();
+    else if (document.getElementById('ov-addcol').classList.contains('show'))  confirmAddColumn();
+  }
+});
+
+
+// ══════════════════════════════════════════
+//  CUSTOM MODAL (no browser confirm/alert)
+// ══════════════════════════════════════════
+function showModal(title, body, buttons) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  const btnsEl = document.getElementById('modal-btns');
+  btnsEl.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = 'modal-btn ' + (b.primary ? 'primary' : 'secondary');
+    btn.textContent = b.label;
+    btn.onclick = () => {
+      document.getElementById('modal-overlay').classList.remove('show');
+      if (b.action) b.action();
+    };
+    btnsEl.appendChild(btn);
+  });
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+const showAlert   = (title, body) => showModal(title, body, [{ label:'OK', primary:true }]);
+const showConfirm = (title, body, okLabel, cancelLabel, onOk) =>
+  showModal(title, body, [
+    { label: okLabel,     primary: true,  action: onOk },
+    { label: cancelLabel, primary: false },
+  ]);
+
+function showPrompt(title, initial, placeholder, cb) {
+  document.getElementById('modal-title').textContent = title;
+  const bodyEl = document.getElementById('modal-body');
+  bodyEl.innerHTML = `<input id="modal-input" placeholder="${(placeholder || '').replace(/"/g,'&quot;')}" style="width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font:inherit;background:transparent;color:inherit;"/>`;
+  const inp = document.getElementById('modal-input');
+  inp.value = initial || '';
+  const btnsEl = document.getElementById('modal-btns');
+  btnsEl.innerHTML = '';
+  const close = () => document.getElementById('modal-overlay').classList.remove('show');
+  const mk = (label, primary, action) => { const b = document.createElement('button'); b.className = 'modal-btn ' + (primary ? 'primary' : 'secondary'); b.textContent = label; b.onclick = () => { close(); action && action(); }; return b; };
+  btnsEl.appendChild(mk('OK', true, () => cb(inp.value)));
+  btnsEl.appendChild(mk('キャンセル', false, () => cb(null)));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { close(); cb(inp.value); } });
+  document.getElementById('modal-overlay').classList.add('show');
+  setTimeout(() => inp.focus(), 50);
+}
+
+// ══════════════════════════════════════════
+//  CONNECTION LIST PANEL
+// ══════════════════════════════════════════
+function renderList() {
+  const deck = currentDeck(); if (!deck) return;
+  const body = document.getElementById('cbody');
+  const meta = document.getElementById('cmeta');
+  const m    = quizMode;
+  const field = m === 'quiz' ? 'userColor' : 'answer';
+  body.innerHTML = '';
+
+  let total = 0;
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c[field]) total++; }));
+  meta.textContent = `${total} 件`;
+
+  if (!total) {
+    body.innerHTML = `<div class="list-empty">${m === 'setup' ? 'カードを2枚タップして線でつなぐと登録されます' : m === 'quiz' ? 'まだ回答がありません' : '—'}</div>`;
+    return;
+  }
+
+  const usedPids = [...new Set(deck.columns.flatMap(col => col.cards.map(c => c[field]).filter(Boolean)))];
+
+  usedPids.forEach((pid, gi) => {
+    const gname = (field === 'answer') ? setLabel(deck, pid, gi) : `セット ${gi + 1}`;
+    const items = [];
+    deck.columns.forEach((col, ci) => col.cards.forEach((card, ki) => {
+      if (card[field] === pid) items.push({ ci, ki, name: card.name, colLabel: col.label, colId: col.id, card });
+    }));
+    if (!items.length) return;
+
+    const grp = document.createElement('div'); grp.className = 'cgroup';
+    const hdr = document.createElement('div'); hdr.className = 'cg-hdr';
+    const resultSuffix = m === 'result'
+      ? ` — <span style="color:var(--ok)">${items.filter(it => isCardCorrect(it.card, deck)).length}正解</span>/${items.length}`
+      : '';
+
+    hdr.innerHTML = `
+      <div class="cg-dot" style="background:var(--accent)"></div>
+      <div class="cg-name">${gname}</div>
+      <div class="cg-count">${items.length} カード${resultSuffix}</div>
+      <div class="cg-speak" id="speak-${pid}" onclick="speakGroup('${pid}')">🔊</div>
+      ${m === 'setup' ? `<div class="cg-clear" onclick="clearColor('${pid}')">× クリア</div>` : ''}
+    `;
+    grp.appendChild(hdr);
+
+    const chips = document.createElement('div'); chips.className = 'cg-cards';
+    items.forEach(item => {
+      const chip = document.createElement('div'); chip.className = 'cg-chip'; chip.style.borderLeftColor = 'var(--accent)';
+      let mark = '';
+      if (m === 'result') {
+        if      (isCardCorrect(item.card, deck)) mark = ' <span style="color:var(--ok)">✓</span>';
+        else if (item.card.userColor)             mark = ' <span style="color:var(--ng)">✗</span>';
+        else                                      mark = ' <span style="color:var(--muted)">—</span>';
+      }
+      chip.innerHTML = `<div class="cg-chip-name">${item.name}${mark}</div><div class="cg-chip-col">${item.colLabel}</div>`;
+      chip.addEventListener('mouseenter', () => {
+        const el = document.getElementById(`card-${item.colId}-${item.ki}`);
+        if (el) { el.classList.add('lit'); }
+      });
+      chip.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.card.lit').forEach(el => { el.classList.remove('lit'); el.style.removeProperty('--lit-c'); el.style.removeProperty('--lit-glow'); });
+      });
+      if (m === 'setup') chip.onclick = () => { item.card.answer = null; save(); renderQuiz(); };
+      chips.appendChild(chip);
+    });
+    grp.appendChild(chips);
+    body.appendChild(grp);
+  });
+}
+
+function clearColor(pid) {
+  showConfirm('セットを解除', 'このセットの線をすべて外します。', '解除する', 'キャンセル', () => {
+    const deck = currentDeck(); if (!deck) return;
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer === pid) c.answer = null; }));
+    save(); renderQuiz();
+  });
+}
+
+function togglePanel() { document.getElementById('cpanel').classList.toggle('open'); }
+
+// ══════════════════════════════════════════
+//  RESULT OVERLAY
+// ══════════════════════════════════════════
+function showRandomResult(deck) {
+  const prompts = deck.columns[0].cards;
+  let correct = 0;
+  prompts.forEach(c => { if (isCardCorrect(c, deck)) correct++; });
+  const total = prompts.length;
+  const pct = total ? Math.round(correct / total * 100) : 0;
+
+  document.getElementById('ro-ok').textContent    = correct;
+  document.getElementById('ro-total').textContent = total;
+  document.getElementById('ro-pct').textContent   = total ? pct + '%' : '—';
+  const clearedToday = (total > 0 && correct === total) ? recordClear(deck) : false;
+  showClearNote(deck, total > 0 && correct === total, clearedToday);
+
+  const groupsEl = document.getElementById('ro-groups');
+  groupsEl.innerHTML = '';
+  prompts.forEach((card, i) => {
+    const ok = isCardCorrect(card, deck);
+    const expectConnect = card.answer && shownGroupSize(card, deck) >= 2;
+    const sc = ok ? 'var(--ok)' : 'var(--ng)';
+
+    // 正解の相手（場に出ている他列のカード）
+    const answerNames = [];
+    if (expectConnect) {
+      deck.columns.forEach((col, cj) => { if (cj === 0) return; col.cards.forEach(c => { if (c.answer === card.answer) answerNames.push(c.name); }); });
+    }
+    const answerText = expectConnect ? answerNames.join(' / ') : '（この問題は正解が場になし＝つながないのが正解）';
+
+    // ユーザーの回答
+    let userText = 'つながなかった';
+    if (card.userColor) {
+      const un = [];
+      deck.columns.forEach((col, cj) => { if (cj === 0) return; col.cards.forEach(c => { if (c.userColor === card.userColor) un.push(c.name); }); });
+      userText = un.length ? un.join(' / ') : '（単独）';
+    }
+
+    const grp = document.createElement('div'); grp.className = 'ro-group';
+    grp.innerHTML = `
+      <div class="ro-group-hdr" style="border-left:4px solid ${sc}">
+        <div class="ro-color-bar" style="background:${sc}"></div>
+        <div class="ro-group-name" style="color:${sc}">Q${i + 1}. ${card.name}</div>
+        <div class="ro-group-score" style="color:${sc}">${ok ? '✓ 正解' : '✗ 不正解'}</div>
+      </div>
+      <div class="ro-cards" style="display:block;padding:10px 14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ok)">✓ 正解: ${answerText}</div>
+        ${ok ? '' : `<div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ng);margin-top:4px">✗ あなた: ${userText}</div>`}
+      </div>
+    `;
+    groupsEl.appendChild(grp);
+  });
+
+  document.getElementById('ro-wrongs-wrap').style.display = 'none';
+  document.querySelector('.ro-footer').innerHTML = `
+    <button class="btn b-quiz" onclick="closeResult();retryQuiz()">↻ もう一度</button>
+    <button class="btn b-setup" onclick="closeResult();startRandomQuiz(randomSourceId)">🎲 別の${randomCount}問</button>
+    <button class="btn" onclick="closeResult();goTo('decks')">× 終了</button>
+  `;
+  document.getElementById('ro-title').textContent = 'ランダム10問の結果';
+  document.getElementById('result-overlay').classList.add('show');
+}
+
+function showResultOverlay() {
+  const deck = currentDeck(); if (!deck) return;
+  if (deck.randomMode) { showRandomResult(deck); return; }
+  const { correct, total } = countCorrectGroups(deck);
+  const pct = total ? Math.round(correct / total * 100) : 0;
+
+  document.getElementById('ro-ok').textContent    = correct;
+  document.getElementById('ro-total').textContent = total;
+  document.getElementById('ro-pct').textContent   = total ? pct + '%' : '—';
+  deck.lastScore = { ok: correct, total, pct }; save();
+  const clearedToday = (total > 0 && correct === total) ? recordClear(deck) : false;
+  showClearNote(deck, total > 0 && correct === total, clearedToday);
+
+  // Answer key groups
+  const aGroups  = buildAnswerGroups(deck);
+  const uGroups  = buildUserGroups(deck);
+  const groupsEl = document.getElementById('ro-groups');
+  groupsEl.innerHTML = '';
+  let gNum = 0;
+
+  aGroups.forEach((aSet, aPid) => {
+    gNum++;
+    const items   = [];
+    deck.columns.forEach(col => col.cards.forEach(card => {
+      if (card.answer === aPid) items.push({ card, colLabel: col.label });
+    }));
+    let matched = false;
+    for (const uSet of uGroups.values()) { if (setsEqual(aSet, uSet)) { matched = true; break; } }
+    const sc = matched ? 'var(--ok)' : 'var(--ng)';
+    const st = matched ? '✓ グループ正解' : '✗ グループ不正解';
+
+    const grp = document.createElement('div'); grp.className = 'ro-group';
+    grp.innerHTML = `
+      <div class="ro-group-hdr" style="border-left:4px solid ${sc}">
+        <div class="ro-color-bar" style="background:${sc}"></div>
+        <div class="ro-group-name" style="color:${sc}">グループ ${gNum}</div>
+        <div class="ro-group-score" style="color:${sc}">${st}</div>
+      </div>
+    `;
+    const cardsWrap = document.createElement('div'); cardsWrap.className = 'ro-cards';
+    items.forEach(({ card, colLabel }) => {
+      const ok = isCardCorrect(card, deck);
+      const rc = document.createElement('div'); rc.className = 'ro-card';
+      rc.style.borderLeftColor = sc;
+      if (!ok) rc.style.background = 'rgba(255,92,92,.05)';
+      rc.innerHTML = `
+        <div class="ro-card-name">${card.name}</div>
+        <div class="ro-card-col">${colLabel}</div>
+        <div class="ro-card-verdict" style="color:${ok ? 'var(--ok)' : 'var(--ng)'}">${ok ? '✓ 正解' : '✗ 別グループに分類'}</div>
+      `;
+      cardsWrap.appendChild(rc);
+    });
+    grp.appendChild(cardsWrap); groupsEl.appendChild(grp);
+  });
+
+  // Wrong cards detail（正解一覧と同じカード形式で表示）
+  const wrongs = [];
+  deck.columns.forEach(col => col.cards.forEach(card => {
+    if (card.answer && !isCardCorrect(card, deck)) wrongs.push({ card, col });
+  }));
+  const wrongsWrap = document.getElementById('ro-wrongs-wrap');
+  const wrongsEl   = document.getElementById('ro-wrongs');
+  wrongsEl.innerHTML = '';
+  if (wrongs.length) {
+    wrongsWrap.style.display = 'block';
+    wrongs.forEach(({ card, col }) => {
+      // 自分がまとめたメンバー / 正解のメンバー（どちらも自分自身を含めて並べる）
+      const mine = [];
+      if (card.userColor) {
+        deck.columns.forEach(c => c.cards.forEach(cc => {
+          if (cc.userColor === card.userColor) mine.push({ card: cc, colLabel: c.label });
+        }));
+      }
+      const right = [];
+      deck.columns.forEach(c => c.cards.forEach(cc => {
+        if (cc.answer === card.answer) right.push({ card: cc, colLabel: c.label });
+      }));
+
+      const chips = (list, color, selfId) => list.map(({ card: cc, colLabel }) => `
+        <div class="ro-card" style="border-left-color:${color};${cc.id === selfId ? 'outline:2px solid ' + color + ';outline-offset:-1px;' : ''}">
+          <div class="ro-card-name">${cc.name}</div>
+          <div class="ro-card-col">${colLabel}</div>
+        </div>`).join('');
+
+      const grp = document.createElement('div');
+      grp.className = 'ro-group';
+      grp.innerHTML = `
+        <div class="ro-group-hdr" style="border-left:4px solid var(--ng)">
+          <div class="ro-color-bar" style="background:var(--ng)"></div>
+          <div class="ro-group-name" style="color:var(--ng)">${card.name}</div>
+          <div class="ro-group-score" style="color:var(--muted)">${col.label}</div>
+          <div class="ro-group-score" style="color:var(--ng);margin-left:10px;">✗ 不正解</div>
+        </div>
+        <div class="ro-wrong-sec">
+          <div class="ro-wrong-label" style="color:var(--ng)">✗ あなたの回答</div>
+          ${mine.length
+            ? `<div class="ro-cards">${chips(mine, 'var(--ng)', card.id)}</div>`
+            : `<div class="ro-wrong-empty">${card.userColor ? '他とつながっていません' : '未回答（線をつないでいません）'}</div>`}
+          <div class="ro-wrong-label" style="color:var(--ok)">✓ 正解</div>
+          ${right.length > 1
+            ? `<div class="ro-cards">${chips(right, 'var(--ok)', card.id)}</div>`
+            : `<div class="ro-wrong-empty">このカードは単独セットです</div>`}
+        </div>
+      `;
+      wrongsEl.appendChild(grp);
+    });
+  } else {
+    wrongsWrap.style.display = 'none';
+  }
+
+  document.getElementById('result-overlay').classList.add('show');
+  document.getElementById('result-overlay').scrollTop = 0;
+}
+
+const closeResult    = () => { document.getElementById('result-overlay').classList.remove('show'); restoreResultTitle(); };
+const retryFromResult = () => { closeResult(); retryQuiz(); };
+const setupFromResult = () => { closeResult(); backToSetup(); };
+
+function speakAllResult() {
+  const deck = currentDeck(); if (!deck) return;
+  const pids = [...buildAnswerGroups(deck).keys()];
+  const phrases = [];
+  pids.forEach(pid => {
+    const items = [];
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c.answer === pid) items.push(c.reading || c.name); }));
+    if (items.length) phrases.push(items.join('、'));
+  });
+  speakSequence(phrases);
+}
+
+// ══════════════════════════════════════════
+//  MOBILE BOTTOM BAR
+// ══════════════════════════════════════════
+function renderMobileBar() {
+  const bar      = document.getElementById('mobile-bar');
+  const palEl    = document.getElementById('mobile-palette');
+  const checkBtn = document.getElementById('mobile-check-btn');
+  if (!bar) return;
+
+  const m       = quizMode;
+  const onQuiz  = document.getElementById('page-quiz').classList.contains('active');
+  bar.classList.toggle('show', onQuiz && (m === 'setup' || m === 'quiz'));
+  if (checkBtn) checkBtn.style.display = m === 'quiz' ? 'block' : 'none';
+
+  palEl.innerHTML = '';
+  const tip = document.createElement('div');
+  tip.style.cssText = 'font-size:11px;color:var(--muted,#888);padding:8px 4px;flex:1;text-align:center;';
+  tip.textContent = selectedCard ? '→ つなぐ相手のカードをタップ' : 'カードを2枚タップで線がつながる';
+  palEl.appendChild(tip);
+}
+
+// ══════════════════════════════════════════
+//  SPEECH（言語自動判定・良質ボイス・混在分割）
+// ══════════════════════════════════════════
+const synth = window.speechSynthesis || { cancel(){}, speak(){}, getVoices:()=>[] };
+const Utter = window.SpeechSynthesisUtterance || function(){};
+
+let _voices = [];
+let _voiceEn = null, _voiceJa = null;
+
+// 良質ボイスを優先的に選ぶ（Neural/Enhanced/Google/Microsoft Natural 等）
+function pickVoice(langPrefix) {
+  const cand = _voices.filter(v => (v.lang || '').toLowerCase().startsWith(langPrefix));
+  if (!cand.length) return null;
+  const score = v => {
+    const n = (v.name || '').toLowerCase();
+    let s = 0;
+    if (/neural|natural|enhanced|premium|siri/.test(n)) s += 5;
+    if (/google/.test(n)) s += 4;
+    if (/microsoft/.test(n)) s += 3;
+    if (langPrefix === 'ja' && /kyoko|o-ren|otoya|nanami|ayumi|haruka/.test(n)) s += 4;
+    if (langPrefix === 'en' && /samantha|aria|jenny|guy|ava|allison/.test(n)) s += 2;
+    if (v.localService === false) s += 1; // クラウド系は概ね高品質
+    return s;
+  };
+  return cand.slice().sort((a, b) => score(b) - score(a))[0];
+}
+
+function loadVoices() {
+  _voices  = synth.getVoices ? synth.getVoices() : [];
+  _voiceEn = pickVoice('en');
+  _voiceJa = pickVoice('ja');
+}
+loadVoices();
+if (typeof speechSynthesis !== 'undefined' && 'onvoiceschanged' in speechSynthesis) {
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+// 文字列を言語で判定（英字主体 or 日本語主体）
+function detectLang(s) {
+  const ja = (s.match(/[぀-ヿ㐀-鿿]/g) || []).length;      // かな＋漢字
+  const en = (s.match(/[A-Za-z]/g) || []).length;
+  if (ja === 0 && en > 0) return 'en';
+  if (en === 0 && ja > 0) return 'ja';
+  return ja >= en ? 'ja' : 'en';                            // 混在は多い方
+}
+
+// テキストを言語セグメントに分割（英日が混在する行を分けて読む）
+function splitByLang(text) {
+  const tokens = text.match(/[A-Za-z][A-Za-z'.\- ]*|[^A-Za-z]+/g) || [];
+  const segs = [];
+  tokens.forEach(t => {
+    const tr = t.trim();
+    if (!tr) return;
+    const lang = /[A-Za-z]/.test(tr) && !/[぀-ヿ㐀-鿿]/.test(tr) ? 'en' : 'ja';
+    const last = segs[segs.length - 1];
+    if (last && last.lang === lang) last.text += (lang === 'en' ? ' ' : '') + tr;
+    else segs.push({ lang, text: tr });
+  });
+  return segs.length ? segs : [{ lang: detectLang(text), text }];
+}
+
+function makeUtter(text, lang) {
+  const u = new Utter(text);
+  u.lang = lang === 'en' ? 'en-US' : 'ja-JP';
+  u.rate = 0.95;
+  const v = lang === 'en' ? _voiceEn : _voiceJa;
+  if (v) u.voice = v;
+  return u;
+}
+
+// フレーズ（複数）を言語ごとに分割してキュー再生。onDone は全再生後に一度
+function speakSequence(phrases, opts) {
+  opts = opts || {};
+  synth.cancel();
+  // 各フレーズを言語セグメントへ展開
+  const queue = [];
+  phrases.forEach(p => splitByLang(p).forEach(seg => queue.push(seg)));
+  if (!queue.length) { opts.onDone && opts.onDone(); return; }
+  let i = 0;
+  (function next() {
+    if (i >= queue.length) { opts.onDone && opts.onDone(); return; }
+    const seg = queue[i++];
+    const u = makeUtter(seg.text, seg.lang);
+    u.onend = next;
+    u.onerror = next;
+    synth.speak(u);
+  })();
+}
+
+function speakCard(name) { speakSequence([name]); }
+
+function speakGroup(pid) {
+  const deck = currentDeck(); if (!deck) return;
+  const field = quizMode === 'quiz' ? 'userColor' : 'answer';
+  const items = [];
+  deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] === pid) items.push(c.reading || c.name); }));
+  if (!items.length) return;
+  const btn = document.getElementById(`speak-${pid}`);
+  document.querySelectorAll('.cg-speak').forEach(b => b.classList.remove('speaking'));
+  if (btn) btn.classList.add('speaking');
+  speakSequence(items, { onDone: () => { if (btn) btn.classList.remove('speaking'); } });
+}
+
+function speakAll() {
+  const deck = currentDeck(); if (!deck) return;
+  const field = quizMode === 'quiz' ? 'userColor' : 'answer';
+  const pids  = [...new Set(deck.columns.flatMap(col => col.cards.map(c => c[field]).filter(Boolean)))];
+  if (!pids.length) return;
+  const phrases = [];
+  pids.forEach(pid => {
+    const items = [];
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] === pid) items.push(c.reading || c.name); }));
+    if (items.length) phrases.push(items.join('、'));
+  });
+  speakSequence(phrases);
+}
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+const loaded = load();
+document.getElementById('inp-blines').addEventListener('input', updateBulkPreview);
+document.getElementById('inp-olines').addEventListener('input', updateOrderPreview);
+if (loaded) purgeFxDecks();
+if (!loaded || decks.length === 0) initDefaultDeck();
+goTo('cover');
+
+// 同期：記憶した同期コードがあれば jsonblob へ接続
+try {
+  const _code = lsGet(SYNC_LS);
+  if (_code) { syncId = _code; bootSync(); }
+} catch(e) {}
+updateSyncIndicator();
+</script>
+</body>
+</html>
