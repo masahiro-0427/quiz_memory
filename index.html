@@ -2598,6 +2598,12 @@ function drawLines() {
   const answerGroups = m === 'result' ? buildAnswerGroups(deck) : null;
 
   const baseStroke = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#3b5bdb';
+  const isMob    = window.innerWidth <= 600;
+  const strokeW  = isMob ? 5.5 : 2.5;
+  const haloW    = strokeW + 5;
+  const dotR     = isMob ? 6.5 : 3.5;
+  const haloColor= getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#ffffff';
+
   groups.forEach((items, pid) => {
     items.sort((p, q) => p.ci - q.ci || p.ki - q.ki);
     let stroke = baseStroke;
@@ -2623,25 +2629,54 @@ function drawLines() {
         const mx = (x1 + x2) / 2;
         d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
       } else {
-        // 縦積み（モバイル）：下端 ⇄ 上端を左寄りで
+        // 縦積み（モバイル）：下端 ⇄ 上端を左側に大きく張り出す曲線で
         const [T, B] = r1.top < r2.top ? [r1, r2] : [r2, r1];
-        x1 = rx(T) + 22; y1 = ry(T) + T.height;
-        x2 = rx(B) + 22; y2 = ry(B);
-        d = `M ${x1} ${y1} C ${x1 - 16} ${(y1+y2)/2}, ${x2 - 16} ${(y1+y2)/2}, ${x2} ${y2}`;
+        const off = isMob ? 20 : 22;      // 線の起点を左端から少し内側に
+        const bow = isMob ? 42 : 16;      // 左へ大きく張り出して弧を見やすく
+        x1 = rx(T) + off; y1 = ry(T) + T.height;
+        x2 = rx(B) + off; y2 = ry(B);
+        const my = (y1 + y2) / 2;
+        d = `M ${x1} ${y1} C ${x1 - bow} ${my}, ${x2 - bow} ${my}, ${x2} ${y2}`;
       }
+
+      // モバイルは濃い影を敷いて白いカード上でも線を際立たせる
+      if (isMob) {
+        const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        shadow.setAttribute('d', d);
+        shadow.setAttribute('fill', 'none');
+        shadow.setAttribute('stroke', 'rgba(0,0,0,0.28)');
+        shadow.setAttribute('stroke-width', String(strokeW + 3));
+        shadow.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(shadow);
+      }
+
+      // ハロー（背景色の太い下地）で線を浮き立たせる
+      const halo = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      halo.setAttribute('d', d);
+      halo.setAttribute('fill', 'none');
+      halo.setAttribute('stroke', haloColor);
+      halo.setAttribute('stroke-width', haloW);
+      halo.setAttribute('stroke-linecap', 'round');
+      halo.setAttribute('opacity', isMob ? '0.55' : '0.9');
+      svg.appendChild(halo);
 
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('d', d);
       path.setAttribute('fill', 'none');
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '2.5');
+      path.setAttribute('stroke-width', String(strokeW));
       path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('opacity', '0.85');
+      path.setAttribute('opacity', isMob ? '0.98' : '0.85');
       svg.appendChild(path);
 
       [[x1, y1], [x2, y2]].forEach(([cx, cy]) => {
+        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', String(dotR + (isMob ? 2.5 : 2)));
+        ring.setAttribute('fill', haloColor);
+        if (isMob) { ring.setAttribute('stroke', 'rgba(0,0,0,0.25)'); ring.setAttribute('stroke-width', '1'); }
+        svg.appendChild(ring);
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', '3.5');
+        dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', String(dotR));
         dot.setAttribute('fill', stroke);
         svg.appendChild(dot);
       });
