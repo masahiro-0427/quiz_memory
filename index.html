@@ -271,6 +271,7 @@ body {
 .card.wrong   { border-color:var(--ng) !important; background:var(--ng-bg) !important; box-shadow:0 0 0 2px rgba(224,49,49,.12); }
 .card.unanswered { opacity:.38; }
 .card-result-icon { position:absolute; top:6px; right:6px; font-size:13px; line-height:1; display:none; }
+.card-gbadge { position:absolute; top:-7px; left:-7px; min-width:22px; height:22px; padding:0 5px; box-sizing:border-box; border-radius:11px; color:#fff; font-family:'Space Mono',monospace; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.3); z-index:6; }
 .card.correct .card-result-icon,
 .card.wrong   .card-result-icon { display:block; animation:popIn .2s ease; }
 .card.correct .card-result-icon::before { content:'✓'; color:var(--ok); font-weight:bold; }
@@ -2282,6 +2283,15 @@ function renderQuiz() {
   const isMob = window.innerWidth <= 600;
   root.innerHTML = '';
 
+  // グループ番号＋色マップ（同じ番号＝同じグループ。スマホで線の代わりに表示）
+  const gField = m === 'setup' ? 'answer' : 'userColor';
+  const gNum = new Map();
+  deck.columns.forEach(col => col.cards.forEach(card => {
+    const pid = card[gField];
+    if (pid && !gNum.has(pid)) gNum.set(pid, gNum.size + 1);
+  }));
+  const gColor = n => `hsl(${Math.round((n - 1) * 137.508) % 360}, 68%, 42%)`;
+
   deck.columns.forEach((col, ci) => {
     const wrapper = document.createElement('div');
     if (isMob) wrapper.className = 'col-section';
@@ -2324,6 +2334,18 @@ function renderQuiz() {
         }
       }
 
+      // 線の代わりのグループ番号バッジ（モバイル）。同じ番号＝同じグループ
+      let badgeUI = '';
+      if (isMob) {
+        const pid = card[gField];
+        if (pid && gNum.has(pid)) {
+          const n = gNum.get(pid);
+          let bg = gColor(n);
+          if (m === 'result') bg = resultClass === 'correct' ? 'var(--ok)' : resultClass === 'wrong' ? 'var(--ng)' : bg;
+          badgeUI = `<span class="card-gbadge" style="background:${bg}">${n}</span>`;
+        }
+      }
+
       const cardEl = document.createElement('div');
       cardEl.className = 'card ' + resultClass;
       cardEl.id = `card-${col.id}-${ki}`;
@@ -2343,6 +2365,7 @@ function renderQuiz() {
       ` : '';
 
       cardEl.innerHTML = `
+        ${badgeUI}
         <div class="card-body">
           ${card.img ? `<img class="card-img" src="${card.img}" alt="" loading="lazy"/>` : ''}
           <div class="card-name">${card.name}</div>
@@ -2573,6 +2596,8 @@ function drawLines() {
   const old  = document.getElementById('link-svg');
   if (old) old.remove();
   const deck = currentDeck(); if (!deck || !root) return;
+  // モバイルは線を廃止し、カードの番号バッジでグループを示す
+  if (window.innerWidth <= 600) return;
 
   const m = quizMode;
   const field = m === 'setup' ? 'answer' : 'userColor';
