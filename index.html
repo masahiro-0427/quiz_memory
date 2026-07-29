@@ -272,6 +272,15 @@ body {
 .card.unanswered { opacity:.38; }
 .card-result-icon { position:absolute; top:6px; right:6px; font-size:13px; line-height:1; display:none; }
 .card-gbadge { position:absolute; top:-7px; left:-7px; min-width:22px; height:22px; padding:0 5px; box-sizing:border-box; border-radius:11px; color:#fff; font-family:'Space Mono',monospace; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.3); z-index:6; }
+.pick-row    { display:flex; align-items:center; gap:11px; width:100%; text-align:left; padding:10px 12px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text); cursor:pointer; font:inherit; transition:all .12s; }
+.pick-row:hover { border-color:var(--accent); background:var(--surf2); }
+.pick-row.current { border-color:var(--accent); background:var(--accent2); }
+.pick-row.new .pick-members { color:var(--accent); font-weight:700; }
+.pick-badge  { flex-shrink:0; width:28px; height:28px; border-radius:50%; color:#fff; font-family:'Space Mono',monospace; font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.pick-badge.none { background:var(--surf2); color:var(--muted); border:1.5px dashed var(--border); }
+.pick-members { flex:1; font-size:13px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pick-tag    { flex-shrink:0; font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.5px; color:var(--accent); }
+.pick-tag.warn { color:var(--ng); }
 .card.correct .card-result-icon,
 .card.wrong   .card-result-icon { display:block; animation:popIn .2s ease; }
 .card.correct .card-result-icon::before { content:'✓'; color:var(--ok); font-weight:bold; }
@@ -531,6 +540,18 @@ body {
 
 <!-- ═══ MOBILE BOTTOM BAR ══════════════ -->
 <input type="file" id="inp-import" accept="application/json,.json" style="display:none;" onchange="importBackupFile(this)"/>
+
+<!-- ═══ GROUP PICKER (mobile) ═══════════ -->
+<div class="overlay" id="ov-pick">
+  <div class="dialog" style="max-width:420px;">
+    <h3 id="pick-title">番号を選ぶ</h3>
+    <p id="pick-current" style="font-size:12px;color:var(--muted);margin:-4px 0 12px;"></p>
+    <div id="pick-body" style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow-y:auto;margin-bottom:12px;"></div>
+    <div class="dialog-btns">
+      <button class="btn" onclick="closeOv('ov-pick')">閉じる</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ SYNC DIALOG ═════════════════════ -->
 <div class="overlay" id="ov-sync">
@@ -2100,10 +2121,12 @@ function startRandomQuiz(deckId, count) {
 
   shuffle(promptable);
   const chosen = promptable.slice(0, Math.min(count, promptable.length));
-  // 6割前後を「解ける（相手が場にある）」に。最低1つは相手なし、最低1つは相手ありにする
+  // 「解ける（相手が場にある）」問題数を毎回ランダムに決める。
+  // 最低1つは相手あり・最低1つは相手なしにして、両方の判断を必ず問う。
   shuffle(chosen);
-  let solvableN = Math.round(chosen.length * 0.6);
-  solvableN = Math.max(1, Math.min(chosen.length - 1, solvableN));
+  let solvableN;
+  if (chosen.length <= 1) solvableN = chosen.length;
+  else solvableN = 1 + Math.floor(Math.random() * (chosen.length - 1)); // 1〜(問題数-1)を一様に
   const solvable = new Set(chosen.slice(0, solvableN).map(a => a.find(x => x.ci === 0).card.id));
 
   const nCols = src.columns.length;
@@ -2142,7 +2165,7 @@ function startRandomQuiz(deckId, count) {
 
   activeQuiz = {
     id: -1,
-    name: src.name + '（ランダム10問）',
+    name: src.name + `（ランダム${count}問）`,
     randomMode: true,
     columns: src.columns.map((col, ci) => ({ id: 10000 + ci, label: col.label, cards: colCards[ci] })),
   };
@@ -2285,12 +2308,7 @@ function renderQuiz() {
 
   // グループ番号＋色マップ（同じ番号＝同じグループ。スマホで線の代わりに表示）
   const gField = m === 'setup' ? 'answer' : 'userColor';
-  const gNum = new Map();
-  deck.columns.forEach(col => col.cards.forEach(card => {
-    const pid = card[gField];
-    if (pid && !gNum.has(pid)) gNum.set(pid, gNum.size + 1);
-  }));
-  const gColor = n => `hsl(${Math.round((n - 1) * 137.508) % 360}, 68%, 42%)`;
+  const gNum = _groupNumberMap(deck, gField);
 
   deck.columns.forEach((col, ci) => {
     const wrapper = document.createElement('div');
@@ -2340,7 +2358,7 @@ function renderQuiz() {
         const pid = card[gField];
         if (pid && gNum.has(pid)) {
           const n = gNum.get(pid);
-          let bg = gColor(n);
+          let bg = _gColor(n);
           if (m === 'result') bg = resultClass === 'correct' ? 'var(--ok)' : resultClass === 'wrong' ? 'var(--ng)' : bg;
           badgeUI = `<span class="card-gbadge" style="background:${bg}">${n}</span>`;
         }
@@ -2462,6 +2480,107 @@ function newGroupPid() {
   return 'grp' + (_nextGid++);
 }
 
+// ── スマホ：番号を一覧から選ぶ ──────────────
+let _pickTarget = null; // {ci, ki}
+const _gColor = n => `hsl(${Math.round((n - 1) * 137.508) % 360}, 68%, 42%)`;
+
+function _groupNumberMap(deck, field) {
+  const map = new Map(); // pid -> number
+  deck.columns.forEach(col => col.cards.forEach(c => {
+    if (c[field] && !map.has(c[field])) map.set(c[field], map.size + 1);
+  }));
+  return map;
+}
+
+function openGroupPicker(ci, ki) {
+  const deck = currentDeck(); if (!deck) return;
+  const card = deck.columns[ci].cards[ki]; if (!card) return;
+  const field = quizMode === 'setup' ? 'answer' : 'userColor';
+  _pickTarget = { ci, ki };
+  speakCard(card.reading || card.name);
+
+  const numMap = _groupNumberMap(deck, field);
+  const curPid = card[field];
+  const curNum = curPid ? numMap.get(curPid) : null;
+
+  document.getElementById('pick-title').textContent = `「${card.name}」の番号を選ぶ`;
+  document.getElementById('pick-current').textContent = card.noMatch
+    ? '現在：繋がない'
+    : curNum ? `現在：${curNum}番のグループ` : '現在：未設定';
+
+  const body = document.getElementById('pick-body');
+  body.innerHTML = '';
+
+  // 既存の番号（グループ）を一覧表示。各番号の現在のメンバーをプレビュー
+  numMap.forEach((n, pid) => {
+    const members = [];
+    deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] === pid) members.push(c.name); }));
+    const sameColConflict = deck.columns[ci].cards.some(c => c !== card && c[field] === pid);
+    const btn = document.createElement('button');
+    btn.className = 'pick-row' + (pid === curPid ? ' current' : '');
+    btn.onclick = () => assignGroup(pid);
+    btn.innerHTML = `
+      <span class="pick-badge" style="background:${_gColor(n)}">${n}</span>
+      <span class="pick-members">${members.join(' ・ ') || '（空）'}</span>
+      ${pid === curPid ? '<span class="pick-tag">選択中</span>' : sameColConflict ? '<span class="pick-tag warn">置き換え</span>' : ''}
+    `;
+    body.appendChild(btn);
+  });
+
+  // 新しい番号
+  const newBtn = document.createElement('button');
+  newBtn.className = 'pick-row new';
+  newBtn.onclick = () => assignGroup('new');
+  newBtn.innerHTML = `<span class="pick-badge" style="background:${_gColor(numMap.size + 1)}">${numMap.size + 1}</span><span class="pick-members">＋ 新しい番号を作る</span>`;
+  body.appendChild(newBtn);
+
+  // 未設定に戻す
+  if (curPid) {
+    const clr = document.createElement('button');
+    clr.className = 'pick-row clear';
+    clr.onclick = () => assignGroup(null);
+    clr.innerHTML = `<span class="pick-badge none">–</span><span class="pick-members">未設定に戻す</span>`;
+    body.appendChild(clr);
+  }
+
+  // ランダム出題：繋がない
+  if (deck.randomMode && quizMode === 'quiz') {
+    const nm = document.createElement('button');
+    nm.className = 'pick-row nomatch';
+    nm.onclick = () => assignGroup('nomatch');
+    nm.innerHTML = `<span class="pick-badge none">✕</span><span class="pick-members">繋がない（相手が場にない）</span>`;
+    body.appendChild(nm);
+  }
+
+  openOv('ov-pick');
+}
+
+function assignGroup(target) {
+  const deck = currentDeck(); if (!deck || !_pickTarget) return;
+  const { ci, ki } = _pickTarget;
+  const card = deck.columns[ci].cards[ki]; if (!card) return;
+  const field = quizMode === 'setup' ? 'answer' : 'userColor';
+
+  card.noMatch = false;
+
+  if (target === 'nomatch') {
+    if (card[field]) { const pid = card[field]; deck.columns.forEach(col => col.cards.forEach(c => { if (c[field] === pid) c[field] = null; })); }
+    card[field] = null; card.noMatch = true;
+  } else if (target === null) {
+    card[field] = null;
+  } else {
+    let pid = target === 'new' ? newGroupPid() : target;
+    // 同じ列に同じ番号のカードがあれば外す（1列1枚に保つ）
+    deck.columns[ci].cards.forEach(c => { if (c !== card && c[field] === pid) c[field] = null; });
+    card[field] = pid;
+  }
+
+  if (quizMode === 'quiz') hoistCompleted(deck, field);
+  save();
+  closeOv('ov-pick');
+  renderQuiz(); updateStatus();
+}
+
 // ランダム出題: カードを「繋がない」に仕分け（もう一度押すと解除）
 function toggleNoMatch(ci, ki) {
   const deck = currentDeck(); if (!deck || !deck.randomMode) return;
@@ -2483,6 +2602,9 @@ function toggleNoMatch(ci, ki) {
 
 function handleClick(ci, ki) {
   const deck = currentDeck(); if (!deck) return;
+  if (quizMode === 'result') return;
+  // スマホ：タップしたら番号を一覧から選ぶ方式
+  if (window.innerWidth <= 600) { openGroupPicker(ci, ki); return; }
   const card  = deck.columns[ci].cards[ki];
   const field = quizMode === 'setup' ? 'answer' : 'userColor';
   // 「繋がない」指定のカードをタップしたら、その指定を解除して通常の選択に戻す
