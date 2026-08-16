@@ -585,14 +585,17 @@ body {
 <!-- ═══ SYNC DIALOG ═════════════════════ -->
 <div class="overlay" id="ov-sync">
   <div class="dialog" style="max-width:420px;">
-    <h3>🔑 同期コードで同期</h3>
+    <h3>☁️ 部屋名＋パスワードで同期</h3>
     <p id="sync-status" style="font-size:12px;color:var(--muted);margin:-4px 0 10px;"></p>
-    <input id="inp-synccode" type="text" autocomplete="off" placeholder="jsonblob のURL または ID を貼る" maxlength="200"/>
+    <input id="inp-sync-room" type="text" autocomplete="off" placeholder="部屋名（例: yuki-study）" maxlength="60" style="margin-bottom:6px;"/>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <input id="inp-sync-pass" type="password" placeholder="パスワード（自分で決めたもの）" maxlength="100" style="flex:1;margin-bottom:0;" autocomplete="current-password"/>
+      <button class="btn" onclick="togglePwVisibility()" style="padding:6px 10px;font-size:11px;flex-shrink:0;">👁</button>
+    </div>
+    <input id="inp-sync-hint" type="text" autocomplete="off" placeholder="パスワードのヒント（任意）" maxlength="60" style="margin-bottom:8px;"/>
     <p style="font-size:11px;color:var(--muted);line-height:1.7;margin:2px 0 12px;">
-      ① <b>jsonblob.com</b> をブラウザで開くと保存領域が自動で作られ、アドレスの末尾がその <b>ID</b> です。<br>
-      ② そのURL（またはID）をここに貼って「この端末を同期」。<br>
-      ③ 別の端末で同じコードを入れるとデータが揃います。<br>
-      <span style="color:var(--ng)">※ 暗号化なしの簡易同期。IDは推測されにくいものを。75日アクセスが無いと消えます。</span>
+      <b>部屋名</b>で保存場所を、<b>パスワード</b>で鍵を決めます。どの端末でも「同じ部屋名＋同じパスワード」で開けます。<br>
+      <span style="color:var(--ng)">※ データは暗号化して保存。パスワードを忘れると開けません。部屋名は推測されにくいものを。75日アクセスが無いと消えます。</span>
     </p>
     <div class="dialog-btns">
       <button class="btn b-ok" onclick="confirmSync()">この端末を同期</button>
@@ -824,18 +827,22 @@ function save() {
 }
 
 // ══════════════════════════════════════════
-//  SYNC（jsonblob 同期コード方式・端末間同期）
-//   jsonblob.com のユーザー作成領域IDを「同期コード」にして GET / PUT する。
-//   POST（新規作成）はしない（Locationヘッダ依存で失敗しやすいため）。
-//   ユーザーは jsonblob.com を開いて領域を作り、URL末尾のIDを貼る。
-//   ※ jsonblob は75日アクセスが無いとデータが消える点に注意。
-//   ※ 暗号化なしの簡易同期。IDは推測されにくいものを使う前提。
-//   ※ Claudeプレビューは外部通信が遮断されるため、同期はGitHub Pages等で確認する。
+//  SYNC（部屋名＋パスワード方式・端末間同期／暗号化あり）
+//   ・部屋名 → 保存場所（jsonblobのID）を SHA-256 で決める
+//   ・パスワード → 鍵（PBKDF2でAES-GCM鍵を生成）。データは暗号化して保存
+//   ・「同じ部屋名＋同じパスワード」ならどの端末でも同じデータが開ける
+//   ・パスワードは自分で決めたものでOK（機械が決めたコード不要）
+//   ・GET / PUT のみ（jsonblobにPOSTはしない）。75日アクセスが無いと消える点に注意。
+//   ・Claudeプレビューは外部通信が遮断されるため、同期はGitHub Pages等で確認する。
 // ══════════════════════════════════════════
-const SYNC_LS = 'connect_sync_code';     // この端末に記憶する同期コード（正規化後のID）
-let syncId = null;                        // 同期ON時のみ文字列（jsonblobのID）
+const ROOM_LS = 'connect_room_name';   // この端末に覚える部屋名
+const PWD_LS  = 'connect_room_pwd';    // この端末に覚えるパスワード
+const HINT_LS = 'connect_room_hint';   // パスワードのヒント
+let syncRoom = null;                    // 同期ON時のみ文字列
+let syncPwd  = null;
+let _syncId  = null;                    // 部屋名から導いた保存ID（キャッシュ）
+let _syncKey = null;                    // パスワードから導いたAES鍵（キャッシュ）
 let _syncTimer = null;
-let _syncOk = false;                      // 直近のPUT/ GETが成功したか（表示用）
 
 // localStorage ラッパー（使えない環境ではメモリにフォールバック）
 const _mem = {};
@@ -843,28 +850,29 @@ function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) { _mem[k] = 
 function lsGet(k)    { try { const v = localStorage.getItem(k); return v == null ? (k in _mem ? _mem[k] : null) : v; } catch(e) { return k in _mem ? _mem[k] : null; } }
 function lsRemove(k) { try { localStorage.removeItem(k); } catch(e) {} delete _mem[k]; }
 
-// 入力(URL or ID)から jsonblob の ID を取り出す。UUIDを優先、無ければ末尾パスセグメント。
-function normalizeSyncId(input) {
-  if (!input) return '';
-  const s = String(input).trim();
-  const uuid = s.match(/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
-  if (uuid) return uuid[0];
-  // 末尾の /json などを除いて最後のパスセグメントを使う
-  const clean = s.split(/[?#]/)[0].replace(/\/+$/, '');
-  const segs = clean.split('/').filter(Boolean);
-  // 末尾が json ならその手前を採用
-  let last = segs[segs.length - 1];
-  if (/^json$/i.test(last) && segs.length >= 2) last = segs[segs.length - 2];
-  return last || '';
-}
-
 function jsonblobUrl(id) { return 'https://jsonblob.com/api/jsonBlob/' + id; }
+function hasCrypto() { return !!(window.crypto && window.crypto.subtle); }
+
+// 部屋名 → 保存ID（SHA-256の先頭32文字）
+async function roomToId(roomName) {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-256', enc.encode(String(roomName).trim().toLowerCase()));
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+// パスワード → AES-GCM鍵（PBKDF2）
+async function passwordToKey(password) {
+  const enc = new TextEncoder();
+  const mat = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('connect-v2'), iterations: 100000, hash: 'SHA-256' },
+    mat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
 
 // 同期するデータをひとまとめにする
 function collectSyncData() {
   return { decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8), _savedAt: Date.now() };
 }
-
 // 受け取ったデータを取り込む（ローカルにも保存）。有効なら true
 function applySyncData(obj) {
   if (!obj || !Array.isArray(obj.decks)) return false;
@@ -879,45 +887,60 @@ function applySyncData(obj) {
   return true;
 }
 
-async function syncPull() {
-  if (!syncId) return null;
-  try {
-    const res = await fetch(jsonblobUrl(syncId), { method: 'GET', headers: { 'Accept': 'application/json' } });
-    if (!res.ok) { _syncOk = false; return null; }
-    _syncOk = true;
-    return await res.json();
-  } catch(e) { _syncOk = false; return null; }
+// 暗号化ペイロードを作る
+async function encryptData(key, hint) {
+  const enc = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(collectSyncData())));
+  return JSON.stringify({ v: 2, iv: Array.from(iv), data: Array.from(new Uint8Array(cipher)), hint: hint || undefined });
 }
 
-async function syncPush() {
-  if (!syncId) return;
+// GET：保存場所を取得。{found, netErr, obj} を返す（404=空の部屋、netErr=通信失敗）
+async function syncFetch(id) {
   try {
-    const res = await fetch(jsonblobUrl(syncId), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(collectSyncData()),
-    });
-    _syncOk = !!(res && res.ok);
-  } catch(e) { _syncOk = false; }
+    const res = await fetch(jsonblobUrl(id), { method: 'GET', headers: { 'Accept': 'application/json' } });
+    if (res.status === 404) { return { found: false, obj: null }; }
+    if (!res.ok) { return { netErr: true }; }
+    return { found: true, obj: await res.json() };
+  } catch(e) { return { netErr: true }; }
+}
+
+// 暗号ペイロードを復号 → 平文オブジェクト or null
+async function decryptData(obj, key) {
+  try {
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(obj.iv) }, key, new Uint8Array(obj.data));
+    return JSON.parse(new TextDecoder().decode(plain));
+  } catch(e) { return null; }
+}
+
+// 保存（暗号化してPUT）
+async function syncPush() {
+  if (!syncRoom || !_syncId || !_syncKey || !hasCrypto()) return;
+  try {
+    const body = await encryptData(_syncKey, syncPwd && lsGet(HINT_LS));
+    await fetch(jsonblobUrl(_syncId), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body });
+  } catch(e) {}
   updateSyncIndicator();
 }
 
-// 同期コードが設定されている時だけ、保存のたびに 0.7秒デバウンスで PUT
+// 同期ONのときだけ、保存のたびに 0.7秒デバウンスでPUT
 function scheduleSyncPush() {
-  if (!syncId) return;
+  if (!syncRoom || !_syncId || !_syncKey) return;
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(syncPush, 700);
 }
 
-// 起動時：同期コードがあれば GET して取り込み、その後 PUT で最新を揃える
+// 起動時：記憶した部屋名＋パスワードがあれば取り込み、その後アップロードで揃える
 async function bootSync() {
-  if (!syncId) { updateSyncIndicator(); return; }
-  const remote = await syncPull();
-  if (applySyncData(remote)) {
-    refreshAfterSync();
-    syncPush();               // 取り込み後、最新状態を揃える
+  if (!syncRoom || !syncPwd || !hasCrypto()) { updateSyncIndicator(); return; }
+  try { _syncId = await roomToId(syncRoom); _syncKey = await passwordToKey(syncPwd); } catch(e) { updateSyncIndicator(); return; }
+  const r = await syncFetch(_syncId);
+  if (r.netErr) { updateSyncIndicator(); return; }
+  if (r.found && r.obj && r.obj.data) {
+    const plain = await decryptData(r.obj, _syncKey);
+    if (plain && applySyncData(plain)) { refreshAfterSync(); syncPush(); }
   } else {
-    syncPush();               // 同期先が空/無効 → 現在のデータをアップロード
+    syncPush();   // 部屋が空 → 現在のデータをアップロード
   }
   updateSyncIndicator();
 }
@@ -934,62 +957,87 @@ function refreshAfterSync() {
 function updateSyncIndicator() {
   const el = document.getElementById('sync-indicator');
   if (!el) return;
-  if (syncId) { el.className = 'sync-ind on'; el.textContent = '☁ 同期ON'; }
+  if (syncRoom) { el.className = 'sync-ind on'; el.textContent = '☁ 同期ON'; }
   else { el.className = 'sync-ind off'; el.textContent = '● 同期OFF'; }
+}
+
+function togglePwVisibility() {
+  const el = document.getElementById('inp-sync-pass');
+  if (el) el.type = el.type === 'password' ? 'text' : 'password';
 }
 
 // 同期ダイアログを開く
 function openSyncDialog() {
-  const on = !!syncId;
+  const on = !!syncRoom;
   document.getElementById('sync-status').textContent = on
-    ? `現在この端末は同期ONです（コード末尾: …${syncId.slice(-6)}）。`
+    ? `現在この端末は同期ONです（部屋: ${syncRoom}）。`
     : '同期はOFFです（この端末のみ保存）。';
-  document.getElementById('inp-synccode').value = on ? syncId : '';
+  document.getElementById('inp-sync-room').value = lsGet(ROOM_LS) || '';
+  document.getElementById('inp-sync-pass').value = lsGet(PWD_LS) || '';
+  document.getElementById('inp-sync-hint').value = lsGet(HINT_LS) || '';
   document.getElementById('sync-off-btn').style.display = on ? 'inline-block' : 'none';
   openOv('ov-sync');
-  setTimeout(() => document.getElementById('inp-synccode').focus(), 50);
+  setTimeout(() => document.getElementById('inp-sync-room').focus(), 50);
 }
 
-// 「この端末を同期」：GETして、データがあれば確認して取り込み、無ければアップロード
+// 「この端末を同期」：部屋名＋パスワードで、あれば取り込み・無ければアップロード
 async function confirmSync() {
-  const raw = document.getElementById('inp-synccode').value.trim();
-  const id  = normalizeSyncId(raw);
-  if (!id) { showAlert('同期コードが空です', 'jsonblob.com のURL、またはID（UUID）を貼ってください。'); return; }
+  const room = document.getElementById('inp-sync-room').value.trim();
+  const pass = document.getElementById('inp-sync-pass').value;
+  const hint = document.getElementById('inp-sync-hint').value.trim();
+  if (!hasCrypto()) { showAlert('同期できません', 'この環境では暗号化機能が使えません。'); return; }
+  if (room.length < 3) { showAlert('部屋名を確認', '部屋名は3文字以上にしてください（推測されにくいものを）。'); return; }
+  if (pass.length < 4) { showAlert('パスワードを確認', 'パスワードは4文字以上にしてください。'); return; }
   closeOv('ov-sync');
-  syncId = id;
-  const remote = await syncPull();
 
-  if (remote && Array.isArray(remote.decks) && remote.decks.length) {
-    showModal('同期先にデータがあります',
-      `${remote.decks.length}個のデッキが見つかりました。取り込みますか？\n（この端末の今の内容は置き換わります）`,
-      [
-        { label: '取り込む', primary: true, action: () => {
-          applySyncData(remote);
-          lsSet(SYNC_LS, id);
-          refreshAfterSync(); updateSyncIndicator();
-          showAlert('同期しました', 'この端末は同期コードにつながりました。次回から自動で接続します。');
-        }},
-        { label: 'この端末のを使う', primary: false, action: () => {
-          lsSet(SYNC_LS, id);
-          syncPush(); updateSyncIndicator();
-          showAlert('同期しました', 'この端末のデータをアップロードしました。');
-        }},
-      ]);
-  } else if (_syncOk || remote !== null) {
-    // 通信は成功したが同期先にCONNECTのデータが無い → 現在のデータをアップロード
-    lsSet(SYNC_LS, id);
-    syncPush(); updateSyncIndicator();
-    showAlert('同期しました', 'この端末のデータをアップロードしました。別端末で同じコードを入れると揃います。');
+  syncRoom = room; syncPwd = pass;
+  _syncId = await roomToId(room);
+  _syncKey = await passwordToKey(pass);
+  const r = await syncFetch(_syncId);
+
+  const remember = () => { lsSet(ROOM_LS, room); lsSet(PWD_LS, pass); if (hint) lsSet(HINT_LS, hint); else lsRemove(HINT_LS); };
+
+  if (r.netErr) {
+    syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null; updateSyncIndicator();
+    showAlert('同期できませんでした', 'ネットワークに接続できませんでした。\n・GitHub Pages 等の外部通信できる環境か確認してください。\n（Claudeのプレビューでは同期できません）');
+    return;
+  }
+
+  if (r.found && r.obj && r.obj.data) {
+    const plain = await decryptData(r.obj, _syncKey);
+    if (!plain) {
+      // 復号失敗＝パスワード違い（部屋は存在する）
+      syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null; updateSyncIndicator();
+      showAlert('パスワードが違います', r.obj.hint ? `この部屋は存在しますが鍵が合いません。\nヒント: 「${r.obj.hint}」` : 'この部屋は存在しますが、パスワードが合いません。');
+      return;
+    }
+    if (Array.isArray(plain.decks) && plain.decks.length) {
+      showModal('部屋にデータがあります',
+        `${plain.decks.length}個のデッキが見つかりました。取り込みますか？\n（この端末の今の内容は置き換わります）`,
+        [
+          { label: '取り込む', primary: true, action: () => {
+            applySyncData(plain); remember(); refreshAfterSync(); updateSyncIndicator();
+            showAlert('同期しました', `部屋「${room}」につながりました。次回から自動で同期します。`);
+          }},
+          { label: 'この端末のを使う', primary: false, action: () => {
+            remember(); syncPush(); updateSyncIndicator();
+            showAlert('同期しました', 'この端末のデータをアップロードしました。');
+          }},
+        ]);
+    } else {
+      remember(); syncPush(); updateSyncIndicator();
+      showAlert('同期しました', `部屋「${room}」にこの端末のデータをアップロードしました。`);
+    }
   } else {
-    // 通信失敗（プレビューの通信遮断、IDが無効/未作成 など）
-    syncId = null; updateSyncIndicator();
-    showAlert('同期できませんでした', 'jsonblob へアクセスできませんでした。\n・IDが正しいか（jsonblob.com で領域を作成済みか）\n・GitHub Pages 等の外部通信できる環境か\nを確認してください。');
+    // 部屋が空（未作成）→ アップロード
+    remember(); syncPush(); updateSyncIndicator();
+    showAlert('同期しました', `部屋「${room}」にこの端末のデータをアップロードしました。別端末で同じ部屋名＋パスワードを入れると揃います。`);
   }
 }
 
 function syncOff() {
-  syncId = null;
-  lsRemove(SYNC_LS);
+  syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null;
+  lsRemove(ROOM_LS); lsRemove(PWD_LS); lsRemove(HINT_LS);
   closeOv('ov-sync');
   updateSyncIndicator();
   showAlert('同期をOFFにしました', 'この端末はローカル保存のみになります（データは残ります）。');
@@ -1358,7 +1406,8 @@ function renderDeckList() {
       : `<button class="deck-act" onclick="startDeckQuiz(${deck.id});event.stopPropagation()" style="color:var(--quiz-c)">▶ 出題</button>
          <button class="deck-act" onclick="openRandomDialog(${deck.id});event.stopPropagation()" style="color:var(--quiz-c)">🎲 ランダム</button>
          <button class="deck-act" onclick="openDeck(${deck.id});event.stopPropagation()">✎ 編集</button>
-         <button class="deck-act" onclick="openDeckDetail(${deck.id});event.stopPropagation()">一覧</button>`;
+         <button class="deck-act" onclick="openDeckDetail(${deck.id});event.stopPropagation()">一覧</button>
+         <button class="deck-act del" onclick="confirmDelDeck(${deck.id});event.stopPropagation()">🗑 削除</button>`;
 
     const card = document.createElement('div');
     card.className = 'deck-card';
@@ -2876,8 +2925,16 @@ function drawLines() {
   root.appendChild(svg);
 }
 
+let _resizeTimer = null;
 window.addEventListener('resize', () => {
-  if (document.getElementById('page-quiz')?.classList.contains('active')) requestAnimationFrame(drawLines);
+  if (!document.getElementById('page-quiz')?.classList.contains('active')) return;
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    // カードの折り返し・サブ列分割・PC/スマホ切替を反映するため、配置ごと作り直す
+    if (typeof renderQuiz === 'function') renderQuiz();
+    if (typeof renderList === 'function') renderList();
+    requestAnimationFrame(drawLines);
+  }, 150);
 });
 
 let _flashTimer = null;
@@ -3819,10 +3876,10 @@ if (loaded) purgeFxDecks();
 if (!loaded || decks.length === 0) initDefaultDeck();
 goTo('cover');
 
-// 同期：記憶した同期コードがあれば jsonblob へ接続
+// 同期：記憶した部屋名＋パスワードがあれば接続
 try {
-  const _code = lsGet(SYNC_LS);
-  if (_code) { syncId = _code; bootSync(); }
+  const _room = lsGet(ROOM_LS), _pwd = lsGet(PWD_LS);
+  if (_room && _pwd) { syncRoom = _room; syncPwd = _pwd; bootSync(); }
 } catch(e) {}
 updateSyncIndicator();
 </script>
