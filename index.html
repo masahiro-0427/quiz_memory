@@ -597,10 +597,13 @@ body {
       <b>部屋名</b>で保存場所を、<b>パスワード</b>で鍵を決めます。どの端末でも「同じ部屋名＋同じパスワード」で開けます。<br>
       <span style="color:var(--ng)">※ データは暗号化して保存。パスワードを忘れると開けません。部屋名は推測されにくいものを。75日アクセスが無いと消えます。</span>
     </p>
-    <div class="dialog-btns">
-      <button class="btn b-ok" onclick="confirmSync()">この端末を同期</button>
-      <button class="btn b-danger" id="sync-off-btn" style="display:none;" onclick="syncOff()">同期を解除</button>
-      <button class="btn" onclick="closeOv('ov-sync')">閉じる</button>
+    <div class="dialog-btns" style="flex-direction:column;gap:8px;">
+      <button class="btn b-ok"   style="width:100%;" onclick="syncUpload()">⬆ 送る（この端末 → クラウド）</button>
+      <button class="btn b-quiz" style="width:100%;" onclick="syncDownload()">⬇ 受け取る（クラウド → この端末）</button>
+      <div style="display:flex;gap:8px;width:100%;">
+        <button class="btn b-danger" id="sync-off-btn" style="display:none;flex:1;" onclick="syncOff()">同期を解除</button>
+        <button class="btn" style="flex:1;" onclick="closeOv('ov-sync')">閉じる</button>
+      </div>
     </div>
   </div>
 </div>
@@ -980,59 +983,79 @@ function openSyncDialog() {
   setTimeout(() => document.getElementById('inp-sync-room').focus(), 50);
 }
 
-// 「この端末を同期」：部屋名＋パスワードで、あれば取り込み・無ければアップロード
-async function confirmSync() {
+// 入力を検証して部屋名・パスワードを確定（鍵とIDを準備）。OKなら {room,pass,hint} を返す
+async function _syncReadInputs() {
   const room = document.getElementById('inp-sync-room').value.trim();
   const pass = document.getElementById('inp-sync-pass').value;
   const hint = document.getElementById('inp-sync-hint').value.trim();
-  if (!hasCrypto()) { showAlert('同期できません', 'この環境では暗号化機能が使えません。'); return; }
-  if (room.length < 3) { showAlert('部屋名を確認', '部屋名は3文字以上にしてください（推測されにくいものを）。'); return; }
-  if (pass.length < 4) { showAlert('パスワードを確認', 'パスワードは4文字以上にしてください。'); return; }
-  closeOv('ov-sync');
+  if (!hasCrypto()) { showAlert('同期できません', 'この環境では暗号化機能が使えません。'); return null; }
+  if (room.length < 3) { showAlert('部屋名を確認', '部屋名は3文字以上にしてください（推測されにくいものを）。'); return null; }
+  if (pass.length < 4) { showAlert('パスワードを確認', 'パスワードは4文字以上にしてください。'); return null; }
+  return { room, pass, hint };
+}
+function _syncRemember(room, pass, hint) {
+  lsSet(ROOM_LS, room); lsSet(PWD_LS, pass); if (hint) lsSet(HINT_LS, hint); else lsRemove(HINT_LS);
+}
 
-  syncRoom = room; syncPwd = pass;
+// ⬆ 送る：この端末のデータでクラウド（部屋）を上書き
+async function syncUpload() {
+  const inp = await _syncReadInputs(); if (!inp) return;
+  const { room, pass, hint } = inp;
   _syncId = await roomToId(room);
   _syncKey = await passwordToKey(pass);
+  // 既存の部屋があり、別パスワードで使われていないか軽く確認
   const r = await syncFetch(_syncId);
+  if (r.netErr) { showAlert('送れませんでした', 'ネットワークに接続できませんでした。\n（Claudeのプレビューでは同期できません。GitHub Pages等でお試しください）'); return; }
 
-  const remember = () => { lsSet(ROOM_LS, room); lsSet(PWD_LS, pass); if (hint) lsSet(HINT_LS, hint); else lsRemove(HINT_LS); };
-
-  if (r.netErr) {
-    syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null; updateSyncIndicator();
-    showAlert('同期できませんでした', 'ネットワークに接続できませんでした。\n・GitHub Pages 等の外部通信できる環境か確認してください。\n（Claudeのプレビューでは同期できません）');
-    return;
-  }
+  const doUpload = () => {
+    closeOv('ov-sync');
+    syncRoom = room; syncPwd = pass; _syncRemember(room, pass, hint);
+    syncPush(); updateSyncIndicator();
+    showAlert('送りました', `部屋「${room}」にこの端末のデータを送りました。\n別の端末で同じ部屋名＋パスワードで「受け取る」を押すと反映されます。`);
+  };
 
   if (r.found && r.obj && r.obj.data) {
     const plain = await decryptData(r.obj, _syncKey);
     if (!plain) {
-      // 復号失敗＝パスワード違い（部屋は存在する）
-      syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null; updateSyncIndicator();
-      showAlert('パスワードが違います', r.obj.hint ? `この部屋は存在しますが鍵が合いません。\nヒント: 「${r.obj.hint}」` : 'この部屋は存在しますが、パスワードが合いません。');
+      // 別パスワードで使われている部屋 → 上書きすると相手は開けなくなる
+      showConfirm('この部屋は別のパスワードで使われています',
+        `${r.obj.hint ? 'ヒント: 「' + r.obj.hint + '」\n' : ''}このまま送ると、上書きされて元のデータは開けなくなります。よろしいですか？`,
+        '上書きして送る', 'やめる', doUpload);
       return;
     }
-    if (Array.isArray(plain.decks) && plain.decks.length) {
-      showModal('部屋にデータがあります',
-        `${plain.decks.length}個のデッキが見つかりました。取り込みますか？\n（この端末の今の内容は置き換わります）`,
-        [
-          { label: '取り込む', primary: true, action: () => {
-            applySyncData(plain); remember(); refreshAfterSync(); updateSyncIndicator();
-            showAlert('同期しました', `部屋「${room}」につながりました。次回から自動で同期します。`);
-          }},
-          { label: 'この端末のを使う', primary: false, action: () => {
-            remember(); syncPush(); updateSyncIndicator();
-            showAlert('同期しました', 'この端末のデータをアップロードしました。');
-          }},
-        ]);
-    } else {
-      remember(); syncPush(); updateSyncIndicator();
-      showAlert('同期しました', `部屋「${room}」にこの端末のデータをアップロードしました。`);
-    }
+    // 既存データを上書きする確認
+    showConfirm('クラウドを上書きします',
+      `部屋「${room}」には ${Array.isArray(plain.decks) ? plain.decks.length : 0}個のデッキがあります。\nこの端末のデータで上書きしますか？`,
+      '上書きして送る', 'やめる', doUpload);
   } else {
-    // 部屋が空（未作成）→ アップロード
-    remember(); syncPush(); updateSyncIndicator();
-    showAlert('同期しました', `部屋「${room}」にこの端末のデータをアップロードしました。別端末で同じ部屋名＋パスワードを入れると揃います。`);
+    doUpload(); // 空の部屋 → そのまま送る
   }
+}
+
+// ⬇ 受け取る：クラウド（部屋）のデータでこの端末を上書き
+async function syncDownload() {
+  const inp = await _syncReadInputs(); if (!inp) return;
+  const { room, pass, hint } = inp;
+  _syncId = await roomToId(room);
+  _syncKey = await passwordToKey(pass);
+  const r = await syncFetch(_syncId);
+  if (r.netErr) { showAlert('受け取れませんでした', 'ネットワークに接続できませんでした。\n（Claudeのプレビューでは同期できません。GitHub Pages等でお試しください）'); return; }
+  if (!r.found || !r.obj || !r.obj.data) { showAlert('部屋が見つかりません', `部屋「${room}」にはまだデータがありません。\n先に送り手側の端末で「送る」を押してください。`); return; }
+
+  const plain = await decryptData(r.obj, _syncKey);
+  if (!plain) {
+    showAlert('パスワードが違います', r.obj.hint ? `この部屋は存在しますが鍵が合いません。\nヒント: 「${r.obj.hint}」` : 'この部屋は存在しますが、パスワードが合いません。');
+    return;
+  }
+  closeOv('ov-sync');
+  showConfirm('この端末に受け取ります',
+    `部屋「${room}」の ${Array.isArray(plain.decks) ? plain.decks.length : 0}個のデッキを受け取ります。\n（この端末の今の内容は置き換わります）`,
+    '受け取る', 'やめる', () => {
+      applySyncData(plain);
+      syncRoom = room; syncPwd = pass; _syncRemember(room, pass, hint);
+      refreshAfterSync(); updateSyncIndicator();
+      showAlert('受け取りました', `部屋「${room}」のデータをこの端末に読み込みました。`);
+    });
 }
 
 function syncOff() {
