@@ -551,7 +551,7 @@ body {
 </div>
 
 <!-- ═══ MOBILE BOTTOM BAR ══════════════ -->
-<input type="file" id="inp-import" accept="application/json,.json" style="display:none;" onchange="importBackupFile(this)"/>
+<input type="file" id="inp-import" accept="application/json,.json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importBackupFile(this)"/>
 
 <!-- ═══ SET ASSIGN (正解一覧からカテゴリ分け) ═══ -->
 <div class="overlay" id="ov-setassign">
@@ -639,12 +639,13 @@ body {
       <div id="cimg-preview" style="display:none;margin-bottom:8px;">
         <img id="cimg-thumb" style="max-width:120px;max-height:90px;border-radius:6px;border:1px solid var(--border);display:block;"/>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button class="btn" style="font-size:11px;" onclick="document.getElementById('inp-cimg').click()">🖼️ 画像を選ぶ</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label class="btn" style="font-size:11px;display:inline-flex;align-items:center;cursor:pointer;">🖼️ 画像を選ぶ
+          <input type="file" id="inp-cimg" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="pickCardImage(this)"/>
+        </label>
         <button class="btn b-danger" id="cimg-remove" style="font-size:11px;display:none;" onclick="removeCardImage()">画像を外す</button>
         <span id="cimg-status" style="font-size:10px;color:var(--muted);"></span>
       </div>
-      <input type="file" id="inp-cimg" accept="image/*" style="display:none;" onchange="pickCardImage(this)"/>
     </div>
     <div class="dialog-btns">
       <button class="btn b-ok" onclick="confirmCard()">保存</button>
@@ -1193,7 +1194,7 @@ function renderDeckList() {
   document.getElementById('decks-hero-title').textContent = 'デッキ一覧';
   document.getElementById('decks-hero-sub').textContent   = `${decks.length} 件`;
   document.getElementById('decks-nav-sub').textContent    = 'DECKS';
-  document.getElementById('decks-nav-right').innerHTML    = `<button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button><button class="btn" onclick="openOrderDialog()">🔢 順番デッキ</button><button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button><button class="btn" onclick="exportBackup()" title="全デッキをJSONで書き出し">💾 バックアップ</button><button class="btn" onclick="document.getElementById('inp-import').click()" title="バックアップから復元">📂 読み込み</button>`;
+  document.getElementById('decks-nav-right').innerHTML    = `<button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button><button class="btn" onclick="openOrderDialog()">🔢 順番デッキ</button><button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button><button class="btn" onclick="exportBackup()" title="全デッキをJSONで書き出し">💾 バックアップ</button><label class="btn" for="inp-import" style="display:inline-flex;align-items:center;cursor:pointer;" title="バックアップから復元">📂 読み込み</label>`;
 
   const body = document.getElementById('decks-body');
   body.innerHTML = '';
