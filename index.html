@@ -338,10 +338,6 @@ body {
   padding:16px; box-sizing:border-box; overflow-y:auto;
 }
 .overlay.show { display:flex; }
-.sync-ind { position:fixed; right:12px; bottom:12px; z-index:280; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.5px; padding:5px 10px; border-radius:20px; cursor:pointer; user-select:none; box-shadow:0 2px 8px rgba(0,0,0,.15); transition:all .15s; border:1px solid transparent; }
-.sync-ind.on  { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); }
-.sync-ind.off { background:var(--surface); color:var(--muted); border-color:var(--border); }
-.sync-ind:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,.2); }
 .save-toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--ok); color:#fff; font-size:13px; font-weight:700; padding:10px 20px; border-radius:24px; box-shadow:0 4px 16px rgba(0,0,0,.25); z-index:400; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; }
 .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 .dialog       { background:var(--surface); border:1px solid var(--border); padding:28px; width:min(340px,calc(100vw - 32px)); border-radius:10px; box-shadow:var(--shadow-lg); max-height:calc(100dvh - 32px); overflow-y:auto; }
@@ -582,35 +578,6 @@ body {
   </div>
 </div>
 
-<!-- ═══ SYNC DIALOG ═════════════════════ -->
-<div class="overlay" id="ov-sync">
-  <div class="dialog" style="max-width:420px;">
-    <h3>☁️ 部屋名＋パスワードで同期</h3>
-    <p id="sync-status" style="font-size:12px;color:var(--muted);margin:-4px 0 10px;"></p>
-    <input id="inp-sync-room" type="text" autocomplete="off" placeholder="部屋名（例: yuki-study）" maxlength="60" style="margin-bottom:6px;"/>
-    <div style="display:flex;gap:6px;margin-bottom:6px;">
-      <input id="inp-sync-pass" type="password" placeholder="パスワード（自分で決めたもの）" maxlength="100" style="flex:1;margin-bottom:0;" autocomplete="current-password"/>
-      <button class="btn" onclick="togglePwVisibility()" style="padding:6px 10px;font-size:11px;flex-shrink:0;">👁</button>
-    </div>
-    <input id="inp-sync-hint" type="text" autocomplete="off" placeholder="パスワードのヒント（任意）" maxlength="60" style="margin-bottom:8px;"/>
-    <p style="font-size:11px;color:var(--muted);line-height:1.7;margin:2px 0 12px;">
-      <b>部屋名</b>で保存場所を、<b>パスワード</b>で鍵を決めます。どの端末でも「同じ部屋名＋同じパスワード」で開けます。<br>
-      <span style="color:var(--ng)">※ データは暗号化して保存。パスワードを忘れると開けません。部屋名は推測されにくいものを。75日アクセスが無いと消えます。</span>
-    </p>
-    <div class="dialog-btns" style="flex-direction:column;gap:8px;">
-      <button class="btn b-ok"   style="width:100%;" onclick="syncUpload()">⬆ 送る（この端末 → クラウド）</button>
-      <button class="btn b-quiz" style="width:100%;" onclick="syncDownload()">⬇ 受け取る（クラウド → この端末）</button>
-      <div style="display:flex;gap:8px;width:100%;">
-        <button class="btn b-danger" id="sync-off-btn" style="display:none;flex:1;" onclick="syncOff()">同期を解除</button>
-        <button class="btn" style="flex:1;" onclick="closeOv('ov-sync')">閉じる</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 隅の同期インジケータ -->
-<div id="sync-indicator" class="sync-ind off" onclick="openSyncDialog()" title="同期の設定">● 同期OFF</div>
-
 <!-- 保存トースト -->
 <div id="save-toast" class="save-toast">💾 保存しました</div>
 
@@ -817,274 +784,104 @@ let _nextDid = 1, _nextCid = 0, _nextKid = 0, _nextGid = 1;
 
 const currentDeck = () => activeQuiz || decks.find(d => d.id === currentDeckId);
 
-function save() {
-  let okLocal = true;
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) }));
-  } catch(e) {
-    // 容量超過のみ失敗として扱う。それ以外（プライベートモード等）はメモリ上で続行
-    okLocal = !(e && /quota/i.test(e.name || ''));
-  }
-  scheduleSyncPush();       // 同期ONのときだけ共有ストレージへ反映（デバウンス）
-  return okLocal;
+// ══════════════════════════════════════════
+//  永続化：IndexedDB（大容量・画像OK）＋ localStorageミラー（フォールバック/旧データ移行）
+// ══════════════════════════════════════════
+const IDB_NAME = 'connect-db', IDB_STORE = 'kv';
+let _idb = null;
+function idbOpen() {
+  return new Promise((res, rej) => {
+    if (_idb) return res(_idb);
+    if (!window.indexedDB) return rej(new Error('no-idb'));
+    let done = false;
+    const finish = (fn, v) => { if (!done) { done = true; fn(v); } };
+    let r;
+    try { r = window.indexedDB.open(IDB_NAME, 1); }
+    catch(e) { return rej(e); }
+    r.onupgradeneeded = () => { try { r.result.createObjectStore(IDB_STORE); } catch(e) {} };
+    r.onsuccess = () => { _idb = r.result; finish(res, _idb); };
+    r.onerror   = () => finish(rej, r.error || new Error('idb-error'));
+    r.onblocked = () => finish(rej, new Error('idb-blocked'));
+    setTimeout(() => finish(rej, new Error('idb-open-timeout')), 3000); // 開けなければ諦める
+  });
+}
+function idbSet(key, val) {
+  return idbOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(val, key);
+    tx.oncomplete = () => res(true);
+    tx.onerror = () => rej(tx.error);
+  }));
+}
+function idbGet(key) {
+  return idbOpen().then(db => new Promise((res, rej) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const rq = tx.objectStore(IDB_STORE).get(key);
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  }));
 }
 
-// ══════════════════════════════════════════
-//  SYNC（部屋名＋パスワード方式・端末間同期／暗号化あり）
-//   ・部屋名 → 保存場所（jsonblobのID）を SHA-256 で決める
-//   ・パスワード → 鍵（PBKDF2でAES-GCM鍵を生成）。データは暗号化して保存
-//   ・「同じ部屋名＋同じパスワード」ならどの端末でも同じデータが開ける
-//   ・パスワードは自分で決めたものでOK（機械が決めたコード不要）
-//   ・GET / PUT のみ（jsonblobにPOSTはしない）。75日アクセスが無いと消える点に注意。
-//   ・Claudeプレビューは外部通信が遮断されるため、同期はGitHub Pages等で確認する。
-// ══════════════════════════════════════════
-const ROOM_LS = 'connect_room_name';   // この端末に覚える部屋名
-const PWD_LS  = 'connect_room_pwd';    // この端末に覚えるパスワード
-const HINT_LS = 'connect_room_hint';   // パスワードのヒント
-let syncRoom = null;                    // 同期ON時のみ文字列
-let syncPwd  = null;
-let _syncId  = null;                    // 部屋名から導いた保存ID（キャッシュ）
-let _syncKey = null;                    // パスワードから導いたAES鍵（キャッシュ）
-let _syncTimer = null;
+function _serialize() {
+  return JSON.stringify({ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) });
+}
 
-// localStorage ラッパー（使えない環境ではメモリにフォールバック）
+function save() {
+  const payload = _serialize();
+  // 主保存：IndexedDB（容量が大きく画像も入る）
+  idbSet(LS_KEY, payload).catch(() => {});
+  // 予備：localStorageにも入れておく（容量に収まる範囲で。超過は無視）
+  try { localStorage.setItem(LS_KEY, payload); } catch(e) {}
+  return true;   // 画像で容量超過しても失敗にしない（IDBに保存されるため）
+}
+
+// Promiseに時間制限をつける（応答が無ければ失敗扱い）
+function _withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+
+// 保存の完了を待って、本当に保存できたかを返す（画像追加など確実性が要る場面用）
+async function persist() {
+  const payload = _serialize();
+  try {
+    await _withTimeout(idbSet(LS_KEY, payload), 3000);   // 3秒応答が無ければ次へ
+    try { localStorage.setItem(LS_KEY, payload); } catch(e) {}
+    return true;
+  } catch(e) {
+    // IndexedDBが使えない/応答しない → localStorageで代替（容量に収まれば成功）
+    try { localStorage.setItem(LS_KEY, payload); return true; } catch(e2) { return false; }
+  }
+}
+
+// localStorage ラッパー（同期系の小さな設定値用。使えない環境ではメモリにフォールバック）
 const _mem = {};
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) { _mem[k] = v; } }
 function lsGet(k)    { try { const v = localStorage.getItem(k); return v == null ? (k in _mem ? _mem[k] : null) : v; } catch(e) { return k in _mem ? _mem[k] : null; } }
 function lsRemove(k) { try { localStorage.removeItem(k); } catch(e) {} delete _mem[k]; }
 
-function jsonblobUrl(id) { return 'https://jsonblob.com/api/jsonBlob/' + id; }
-function hasCrypto() { return !!(window.crypto && window.crypto.subtle); }
-
-// 部屋名 → 保存ID（SHA-256の先頭32文字）
-async function roomToId(roomName) {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest('SHA-256', enc.encode(String(roomName).trim().toLowerCase()));
-  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
-}
-// パスワード → AES-GCM鍵（PBKDF2）
-async function passwordToKey(password) {
-  const enc = new TextEncoder();
-  const mat = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt: enc.encode('connect-v2'), iterations: 100000, hash: 'SHA-256' },
-    mat, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
-  );
+function _applyLoaded(d) {
+  decks    = d.decks    || [];
+  _nextDid = d._nextDid || 1;
+  _nextCid = d._nextCid || 0;
+  _nextKid = d._nextKid || 0;
+  _nextGid = d._nextGid || 1;
+  if (Array.isArray(d.extraPalette)) d.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
+  decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => {
+    c.answer    = c.answer    || null;
+    c.userColor = c.userColor || null;
+  })));
 }
 
-// 同期するデータをひとまとめにする
-function collectSyncData() {
-  return { decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8), _savedAt: Date.now() };
-}
-// 受け取ったデータを取り込む（ローカルにも保存）。有効なら true
-function applySyncData(obj) {
-  if (!obj || !Array.isArray(obj.decks)) return false;
-  decks    = obj.decks;
-  _nextDid = obj._nextDid || (Math.max(0, ...decks.map(x => x.id || 0)) + 1);
-  _nextCid = obj._nextCid || 0;
-  _nextKid = obj._nextKid || 0;
-  _nextGid = obj._nextGid || 1;
-  if (Array.isArray(obj.extraPalette)) obj.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
-  decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => { c.answer = c.answer || null; c.userColor = c.userColor || null; })));
-  lsSet(LS_KEY, JSON.stringify({ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) }));
-  return true;
-}
-
-// 暗号化ペイロードを作る
-async function encryptData(key, hint) {
-  const enc = new TextEncoder();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(collectSyncData())));
-  return JSON.stringify({ v: 2, iv: Array.from(iv), data: Array.from(new Uint8Array(cipher)), hint: hint || undefined });
-}
-
-// GET：保存場所を取得。{found, netErr, obj} を返す（404=空の部屋、netErr=通信失敗）
-async function syncFetch(id) {
+// 起動時の読み込み：IndexedDB優先、無ければlocalStorage（旧データ）から移行
+async function load() {
+  let raw = null;
+  try { raw = await idbGet(LS_KEY); } catch(e) {}
+  let fromLS = false;
+  if (!raw) { try { raw = localStorage.getItem(LS_KEY); fromLS = !!raw; } catch(e) {} }
+  if (!raw) return false;
   try {
-    const res = await fetch(jsonblobUrl(id), { method: 'GET', headers: { 'Accept': 'application/json' } });
-    if (res.status === 404) { return { found: false, obj: null }; }
-    if (!res.ok) { return { netErr: true }; }
-    return { found: true, obj: await res.json() };
-  } catch(e) { return { netErr: true }; }
-}
-
-// 暗号ペイロードを復号 → 平文オブジェクト or null
-async function decryptData(obj, key) {
-  try {
-    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(obj.iv) }, key, new Uint8Array(obj.data));
-    return JSON.parse(new TextDecoder().decode(plain));
-  } catch(e) { return null; }
-}
-
-// 保存（暗号化してPUT）
-async function syncPush() {
-  if (!syncRoom || !_syncId || !_syncKey || !hasCrypto()) return;
-  try {
-    const body = await encryptData(_syncKey, syncPwd && lsGet(HINT_LS));
-    await fetch(jsonblobUrl(_syncId), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body });
-  } catch(e) {}
-  updateSyncIndicator();
-}
-
-// 同期ONのときだけ、保存のたびに 0.7秒デバウンスでPUT
-function scheduleSyncPush() {
-  if (!syncRoom || !_syncId || !_syncKey) return;
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(syncPush, 700);
-}
-
-// 起動時：記憶した部屋名＋パスワードがあれば取り込み、その後アップロードで揃える
-async function bootSync() {
-  if (!syncRoom || !syncPwd || !hasCrypto()) { updateSyncIndicator(); return; }
-  try { _syncId = await roomToId(syncRoom); _syncKey = await passwordToKey(syncPwd); } catch(e) { updateSyncIndicator(); return; }
-  const r = await syncFetch(_syncId);
-  if (r.netErr) { updateSyncIndicator(); return; }
-  if (r.found && r.obj && r.obj.data) {
-    const plain = await decryptData(r.obj, _syncKey);
-    if (plain && applySyncData(plain)) { refreshAfterSync(); syncPush(); }
-  } else {
-    syncPush();   // 部屋が空 → 現在のデータをアップロード
-  }
-  updateSyncIndicator();
-}
-
-// 同期後にUIを再描画
-function refreshAfterSync() {
-  if (document.getElementById('page-decks').classList.contains('active')) {
-    if (deckView === 'detail' && decks.some(d => d.id === detailDeckId)) renderDeckDetail(detailDeckId);
-    else { deckView = 'list'; renderDeckList(); }
-  }
-}
-
-// 隅の同期インジケータ
-function updateSyncIndicator() {
-  const el = document.getElementById('sync-indicator');
-  if (!el) return;
-  if (syncRoom) { el.className = 'sync-ind on'; el.textContent = '☁ 同期ON'; }
-  else { el.className = 'sync-ind off'; el.textContent = '● 同期OFF'; }
-}
-
-function togglePwVisibility() {
-  const el = document.getElementById('inp-sync-pass');
-  if (el) el.type = el.type === 'password' ? 'text' : 'password';
-}
-
-// 同期ダイアログを開く
-function openSyncDialog() {
-  const on = !!syncRoom;
-  document.getElementById('sync-status').textContent = on
-    ? `現在この端末は同期ONです（部屋: ${syncRoom}）。`
-    : '同期はOFFです（この端末のみ保存）。';
-  document.getElementById('inp-sync-room').value = lsGet(ROOM_LS) || '';
-  document.getElementById('inp-sync-pass').value = lsGet(PWD_LS) || '';
-  document.getElementById('inp-sync-hint').value = lsGet(HINT_LS) || '';
-  document.getElementById('sync-off-btn').style.display = on ? 'inline-block' : 'none';
-  openOv('ov-sync');
-  setTimeout(() => document.getElementById('inp-sync-room').focus(), 50);
-}
-
-// 入力を検証して部屋名・パスワードを確定（鍵とIDを準備）。OKなら {room,pass,hint} を返す
-async function _syncReadInputs() {
-  const room = document.getElementById('inp-sync-room').value.trim();
-  const pass = document.getElementById('inp-sync-pass').value;
-  const hint = document.getElementById('inp-sync-hint').value.trim();
-  if (!hasCrypto()) { showAlert('同期できません', 'この環境では暗号化機能が使えません。'); return null; }
-  if (room.length < 3) { showAlert('部屋名を確認', '部屋名は3文字以上にしてください（推測されにくいものを）。'); return null; }
-  if (pass.length < 4) { showAlert('パスワードを確認', 'パスワードは4文字以上にしてください。'); return null; }
-  return { room, pass, hint };
-}
-function _syncRemember(room, pass, hint) {
-  lsSet(ROOM_LS, room); lsSet(PWD_LS, pass); if (hint) lsSet(HINT_LS, hint); else lsRemove(HINT_LS);
-}
-
-// ⬆ 送る：この端末のデータでクラウド（部屋）を上書き
-async function syncUpload() {
-  const inp = await _syncReadInputs(); if (!inp) return;
-  const { room, pass, hint } = inp;
-  _syncId = await roomToId(room);
-  _syncKey = await passwordToKey(pass);
-  // 既存の部屋があり、別パスワードで使われていないか軽く確認
-  const r = await syncFetch(_syncId);
-  if (r.netErr) { showAlert('送れませんでした', 'ネットワークに接続できませんでした。\n（Claudeのプレビューでは同期できません。GitHub Pages等でお試しください）'); return; }
-
-  const doUpload = () => {
-    closeOv('ov-sync');
-    syncRoom = room; syncPwd = pass; _syncRemember(room, pass, hint);
-    syncPush(); updateSyncIndicator();
-    showAlert('送りました', `部屋「${room}」にこの端末のデータを送りました。\n別の端末で同じ部屋名＋パスワードで「受け取る」を押すと反映されます。`);
-  };
-
-  if (r.found && r.obj && r.obj.data) {
-    const plain = await decryptData(r.obj, _syncKey);
-    if (!plain) {
-      // 別パスワードで使われている部屋 → 上書きすると相手は開けなくなる
-      showConfirm('この部屋は別のパスワードで使われています',
-        `${r.obj.hint ? 'ヒント: 「' + r.obj.hint + '」\n' : ''}このまま送ると、上書きされて元のデータは開けなくなります。よろしいですか？`,
-        '上書きして送る', 'やめる', doUpload);
-      return;
-    }
-    // 既存データを上書きする確認
-    showConfirm('クラウドを上書きします',
-      `部屋「${room}」には ${Array.isArray(plain.decks) ? plain.decks.length : 0}個のデッキがあります。\nこの端末のデータで上書きしますか？`,
-      '上書きして送る', 'やめる', doUpload);
-  } else {
-    doUpload(); // 空の部屋 → そのまま送る
-  }
-}
-
-// ⬇ 受け取る：クラウド（部屋）のデータでこの端末を上書き
-async function syncDownload() {
-  const inp = await _syncReadInputs(); if (!inp) return;
-  const { room, pass, hint } = inp;
-  _syncId = await roomToId(room);
-  _syncKey = await passwordToKey(pass);
-  const r = await syncFetch(_syncId);
-  if (r.netErr) { showAlert('受け取れませんでした', 'ネットワークに接続できませんでした。\n（Claudeのプレビューでは同期できません。GitHub Pages等でお試しください）'); return; }
-  if (!r.found || !r.obj || !r.obj.data) { showAlert('部屋が見つかりません', `部屋「${room}」にはまだデータがありません。\n先に送り手側の端末で「送る」を押してください。`); return; }
-
-  const plain = await decryptData(r.obj, _syncKey);
-  if (!plain) {
-    showAlert('パスワードが違います', r.obj.hint ? `この部屋は存在しますが鍵が合いません。\nヒント: 「${r.obj.hint}」` : 'この部屋は存在しますが、パスワードが合いません。');
-    return;
-  }
-  closeOv('ov-sync');
-  showConfirm('この端末に受け取ります',
-    `部屋「${room}」の ${Array.isArray(plain.decks) ? plain.decks.length : 0}個のデッキを受け取ります。\n（この端末の今の内容は置き換わります）`,
-    '受け取る', 'やめる', () => {
-      applySyncData(plain);
-      syncRoom = room; syncPwd = pass; _syncRemember(room, pass, hint);
-      refreshAfterSync(); updateSyncIndicator();
-      showAlert('受け取りました', `部屋「${room}」のデータをこの端末に読み込みました。`);
-    });
-}
-
-function syncOff() {
-  syncRoom = null; syncPwd = null; _syncId = null; _syncKey = null;
-  lsRemove(ROOM_LS); lsRemove(PWD_LS); lsRemove(HINT_LS);
-  closeOv('ov-sync');
-  updateSyncIndicator();
-  showAlert('同期をOFFにしました', 'この端末はローカル保存のみになります（データは残ります）。');
-}
-
-
-function load() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const d = JSON.parse(raw);
-    decks    = d.decks    || [];
-    _nextDid = d._nextDid || 1;
-    _nextCid = d._nextCid || 0;
-    _nextKid = d._nextKid || 0;
-    _nextGid = d._nextGid || 1;
-    if (Array.isArray(d.extraPalette)) {
-      d.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
-    }
-    // Ensure all cards have required fields
-    decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => {
-      c.answer    = c.answer    || null;
-      c.userColor = c.userColor || null;
-    })));
+    _applyLoaded(JSON.parse(raw));
+    if (fromLS) idbSet(LS_KEY, raw).catch(() => {});  // localStorage → IndexedDB へ移行
     return true;
   } catch(e) { return false; }
 }
@@ -1396,7 +1193,7 @@ function renderDeckList() {
   document.getElementById('decks-hero-title').textContent = 'デッキ一覧';
   document.getElementById('decks-hero-sub').textContent   = `${decks.length} 件`;
   document.getElementById('decks-nav-sub').textContent    = 'DECKS';
-  document.getElementById('decks-nav-right').innerHTML    = `<button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button><button class="btn" onclick="openOrderDialog()">🔢 順番デッキ</button><button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button><button class="btn" onclick="exportBackup()" title="全デッキをJSONで書き出し">💾 バックアップ</button><button class="btn" onclick="document.getElementById('inp-import').click()" title="バックアップから復元">📂 読み込み</button><button class="btn" onclick="openSyncDialog()" title="合言葉で端末間同期">🔑 同期</button>`;
+  document.getElementById('decks-nav-right').innerHTML    = `<button class="btn b-ok" onclick="openBulkDialog()">⚡ かんたん一括作成</button><button class="btn" onclick="openOrderDialog()">🔢 順番デッキ</button><button class="btn" onclick="openNewDeckDialog()">＋ 新規デッキ</button><button class="btn" onclick="exportBackup()" title="全デッキをJSONで書き出し">💾 バックアップ</button><button class="btn" onclick="document.getElementById('inp-import').click()" title="バックアップから復元">📂 読み込み</button>`;
 
   const body = document.getElementById('decks-body');
   body.innerHTML = '';
@@ -3002,6 +2799,7 @@ let editingColIdx = null;
 let editingFrom = 'quiz';
 
 let editingImg = null; // ダイアログ内の画像状態（dataURL または null）
+let _addToSetPid = null; // 「＋新規」で追加するカードを割り当てるセットpid
 
 function setImgUI(img) {
   editingImg = img || null;
@@ -3014,6 +2812,7 @@ function setImgUI(img) {
 
 function openAddCard(ci, from = 'quiz') {
   editingFrom = from;
+  if (from !== 'setassign') _addToSetPid = null;
   editingCard = { ci, ki: null };
   document.getElementById('ov-card-title').textContent = 'カード追加';
   document.getElementById('inp-cname').value = '';
@@ -3028,6 +2827,7 @@ function openAddCard(ci, from = 'quiz') {
 function openEditCard(e, ci, ki, from = 'quiz') {
   e.stopPropagation();
   editingFrom = from;
+  _addToSetPid = null;
   const card = currentDeck()?.columns[ci]?.cards[ki];
   if (!card) return;
   editingCard = { ci, ki };
@@ -3098,14 +2898,20 @@ function pickCardImage(input) {
   reader.readAsDataURL(file);
 }
 
-function confirmCard() {
+async function confirmCard() {
   const name = document.getElementById('inp-cname').value.trim(); if (!name) return;
   const sub  = document.getElementById('inp-csub').value.trim();
   const reading = document.getElementById('inp-cread').value.trim();
   const deck = currentDeck(); if (!deck) return;
   let rollback;
   if (editingCard.ki === null) {
-    deck.columns[editingCard.ci].cards.push({ id: _nextKid++, name, sub, reading, img: editingImg, answer: null, userColor: null });
+    // 正解一覧の「＋新規」から来た場合は、そのセットに割り当てる
+    let ans = null;
+    if (_addToSetPid) {
+      ans = _addToSetPid;
+      if (!deck.multiConnect) deck.columns[editingCard.ci].cards.forEach(c => { if (c.answer === ans) c.answer = null; });
+    }
+    deck.columns[editingCard.ci].cards.push({ id: _nextKid++, name, sub, reading, img: editingImg, answer: ans, userColor: null });
     rollback = () => deck.columns[editingCard.ci].cards.pop();
   } else {
     const card = deck.columns[editingCard.ci].cards[editingCard.ki];
@@ -3113,18 +2919,20 @@ function confirmCard() {
     card.name = name; card.sub = sub; card.reading = reading; card.img = editingImg;
     rollback = () => Object.assign(card, prev);
   }
-  if (!save()) {
+  const okp = await persist();
+  if (!okp) {
     rollback();
-    save();
-    showAlert('保存できません', '保存容量の上限に達しました。画像を減らすか、不要なデッキを削除してください。');
+    showAlert('保存できません', 'この端末では保存できませんでした。\nプライベートブラウズを解除するか、別のブラウザでお試しください。');
     return;
   }
   closeOv('ov-card'); refreshAfterCardEdit();
 }
 
 function refreshAfterCardEdit() {
-  if (editingFrom === 'detail') renderDeckDetail(detailDeckId);
+  if (editingFrom === 'setassign') { renderSetAssign(); }
+  else if (editingFrom === 'detail') renderDeckDetail(detailDeckId);
   else renderQuiz();
+  _addToSetPid = null;
 }
 
 // セット名（ユーザー指定があればそれを、なければ「セット N」）
@@ -3235,19 +3043,12 @@ function renderSetAssign() {
   });
 }
 
-// この列に新しいカードを作り、開いているセットに入れる
+// この列に新しいカードを作り、開いているセットに入れる（画像も指定できる本格ダイアログを使う）
 function addCardToSet(ci) {
   const deck = decks.find(d => d.id === _setAssignDeckId); if (!deck) return;
-  const pid = _setAssignPid;
-  showPrompt('新しいカードを追加', '', `${deck.columns[ci].label}のカード名`, v => {
-    const name = (v || '').trim(); if (!name) return;
-    if (!deck.multiConnect) {
-      deck.columns[ci].cards.forEach(c => { if (c.answer === pid) c.answer = null; });
-    }
-    deck.columns[ci].cards.push({ id: _nextKid++, name, sub: '', reading: '', img: null, answer: pid, userColor: null });
-    save();
-    renderSetAssign();
-  });
+  currentDeckId = _setAssignDeckId;          // confirmCard が currentDeck() を使うため
+  _addToSetPid = _setAssignPid;              // 追加したカードをこのセットに割り当てる
+  openAddCard(ci, 'setassign');             // 画像・読み方も指定できるカードダイアログ
 }
 
 function toggleSetMember(ci, ki) {
@@ -3892,19 +3693,14 @@ function speakAll() {
 // ══════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════
-const loaded = load();
 document.getElementById('inp-blines').addEventListener('input', updateBulkPreview);
 document.getElementById('inp-olines').addEventListener('input', updateOrderPreview);
-if (loaded) purgeFxDecks();
-if (!loaded || decks.length === 0) initDefaultDeck();
-goTo('cover');
-
-// 同期：記憶した部屋名＋パスワードがあれば接続
-try {
-  const _room = lsGet(ROOM_LS), _pwd = lsGet(PWD_LS);
-  if (_room && _pwd) { syncRoom = _room; syncPwd = _pwd; bootSync(); }
-} catch(e) {}
-updateSyncIndicator();
+(async () => {
+  const loaded = await load();
+  if (loaded) purgeFxDecks();
+  if (!loaded || decks.length === 0) initDefaultDeck();
+  goTo('cover');
+})();
 </script>
 </body>
 </html>
