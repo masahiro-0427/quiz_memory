@@ -167,6 +167,8 @@ body {
 /* Deck detail table */
 .deck-table    { width:100%; border-collapse:collapse; background:var(--surface); border-radius:8px; overflow:hidden; box-shadow:var(--shadow); }
 .deck-table th { font-family:'Space Mono',monospace; font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); padding:10px 12px; border-bottom:2px solid var(--border); text-align:left; background:var(--surf2); }
+.deck-table th.col-edit-th { cursor:pointer; transition:background .15s, color .15s; }
+.deck-table th.col-edit-th:hover { background:var(--accent2); color:var(--accent); }
 .deck-table td { padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px; vertical-align:middle; }
 .deck-table tr:last-child td { border-bottom:none; }
 .deck-table tr:hover td { background:var(--surf2); }
@@ -382,13 +384,17 @@ body {
 .ro-group-score { font-family:'Space Mono',monospace; font-size:10px; margin-left:auto; }
 .ro-cards       { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; background:var(--surface); }
 .ro-card        { display:flex; flex-direction:column; gap:3px; padding:9px 14px; border-left:4px solid transparent; background:var(--surf2); min-width:120px; border-radius:5px; }
+.ro-card-img    { max-width:72px; max-height:72px; border-radius:4px; display:block; margin-bottom:2px; object-fit:cover; }
 .ro-card-name   { font-size:13px; font-weight:700; line-height:1.3; color:var(--text); }
 .ro-card-col    { font-family:'Space Mono',monospace; font-size:8px; color:var(--muted); }
 .ro-card-verdict { font-family:'Space Mono',monospace; font-size:9px; margin-top:3px; }
 .ro-wrongs      { margin-top:24px; }
-.ro-wrong-sec   { background:var(--surface); padding:4px 0 10px; }
-.ro-wrong-label { font-family:'Space Mono',monospace; font-size:9px; letter-spacing:1.5px; padding:10px 16px 2px; }
-.ro-wrong-empty { font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); padding:4px 16px 8px; }
+.ro-wrongrow { display:flex; align-items:center; gap:10px; padding:9px 14px; border-bottom:1px solid var(--border); }
+.ro-wrongrow-img { width:34px; height:34px; object-fit:cover; border-radius:5px; border:1px solid var(--border); flex-shrink:0; }
+.ro-wrongrow-main { flex:1; min-width:0; }
+.ro-wrongrow-name { font-size:13px; font-weight:700; color:var(--text); }
+.ro-wrongrow-col { font-family:'Space Mono',monospace; font-size:9px; color:var(--muted); margin-left:6px; }
+.ro-wrongrow-detail { font-size:11px; margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
 .ro-footer      { padding:20px 28px; border-top:1px solid var(--border); display:flex; gap:10px; flex-wrap:wrap; background:var(--surface); flex-shrink:0; box-shadow:0 -1px 4px rgba(0,0,0,.06); }
 
 /* FAB */
@@ -854,12 +860,6 @@ async function persist() {
   }
 }
 
-// localStorage ラッパー（同期系の小さな設定値用。使えない環境ではメモリにフォールバック）
-const _mem = {};
-function lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) { _mem[k] = v; } }
-function lsGet(k)    { try { const v = localStorage.getItem(k); return v == null ? (k in _mem ? _mem[k] : null) : v; } catch(e) { return k in _mem ? _mem[k] : null; } }
-function lsRemove(k) { try { localStorage.removeItem(k); } catch(e) {} delete _mem[k]; }
-
 function _applyLoaded(d) {
   decks    = d.decks    || [];
   _nextDid = d._nextDid || 1;
@@ -1096,6 +1096,31 @@ function purgeFxDecks() {
   if (decks.length !== before) save();
 }
 
+// 品詞（初級）例題デッキを常に用意する（無ければ作る。編集済みなら尊重、削除しても次回復活）
+const HINSHI_DECK_NAME = '品詞（初級）【例題】';
+function ensureHinshiDeck() {
+  if (decks.some(d => d.name === HINSHI_DECK_NAME)) return;
+  const rows = [
+    ['名詞',   '人・物・事の名前',   'The dog runs. の "dog"（犬）'],
+    ['動詞',   '動作や状態を表す',   'She runs fast. の "runs"（走る）'],
+    ['形容詞', '名詞を説明する',     'a big dog の "big"（大きい）'],
+    ['副詞',   '動詞などを説明する', 'He runs fast. の "fast"（速く）'],
+    ['代名詞', '名詞の代わり',       'I like it. の "it"（それ）'],
+    ['前置詞', '位置・関係を示す',   'on the table の "on"（〜の上に）'],
+    ['接続詞', '語や文をつなぐ',     'you and me の "and"（〜と）'],
+    ['冠詞',   '名詞に付く小さな語', 'a cat / the sun の "a / the"'],
+    ['助動詞', '動詞を助ける',       'I can swim. の "can"（〜できる）'],
+    ['間投詞', '感情を表す',         'Wow! の "Wow"（うわ）'],
+  ];
+  const d = createDeck(HINSHI_DECK_NAME, '品詞・意味・例文を線でつなごう（例題）');
+  d.columns = [
+    { id: _nextCid++, label: '品詞', cards: rows.map((r, i) => ({ id: _nextKid++, name: r[0], sub: '', answer: 'q' + i, userColor: null })) },
+    { id: _nextCid++, label: '意味', cards: rows.map((r, i) => ({ id: _nextKid++, name: r[1], sub: '', answer: 'q' + i, userColor: null })) },
+    { id: _nextCid++, label: '例文', cards: rows.map((r, i) => ({ id: _nextKid++, name: r[2], sub: '', answer: 'q' + i, userColor: null })) },
+  ];
+  save();
+}
+
 // ══════════════════════════════════════════
 //  GROUP MATCHING HELPERS
 // ══════════════════════════════════════════
@@ -1283,7 +1308,7 @@ function renderDeckDetail(deckId) {
   body.insertAdjacentHTML('beforeend', clearHistoryHtml(deck));
   const table   = document.createElement('table');
   table.className = 'deck-table';
-  table.innerHTML = `<thead><tr>${deck.columns.map(c => `<th>${c.label}</th>`).join('')}</tr></thead>`;
+  table.innerHTML = `<thead><tr>${deck.columns.map((c, ci) => `<th class="col-edit-th" onclick="detailEditCol(${ci})" title="タップで列名の変更・削除">${c.label} <span style="opacity:.5;font-size:10px;">✎</span></th>`).join('')}</tr></thead>`;
   const tbody = document.createElement('tbody');
 
   // 正解セット番号（登場順）
@@ -1382,6 +1407,13 @@ function renderDeckDetail(deckId) {
 
   table.appendChild(tbody);
   body.appendChild(table);
+
+  // 列の追加
+  const colAdd = document.createElement('div');
+  colAdd.style.cssText = 'margin-top:12px;';
+  colAdd.innerHTML = `<button class="btn" style="font-size:11px;" onclick="detailAddColumn()">＋ 列を追加</button>
+    <span style="font-size:11px;color:var(--muted);margin-left:8px;">列名をタップすると変更・削除できます</span>`;
+  body.appendChild(colAdd);
 }
 
 function showAnswerKey(deckId) {
@@ -1437,10 +1469,7 @@ function showAnswerOnlyOverlay(deck) {
     items.forEach(({ card, colLabel }) => {
       const rc = document.createElement('div'); rc.className = 'ro-card';
       rc.style.borderLeftColor = p?.hex || 'var(--accent)';
-      rc.innerHTML = `
-        <div class="ro-card-name">${card.name}</div>
-        <div class="ro-card-col">${colLabel}</div>
-      `;
+      rc.innerHTML = _roCardBody(card, colLabel);
       cardsWrap.appendChild(rc);
     });
     grp.appendChild(cardsWrap);
@@ -2900,9 +2929,11 @@ function pickCardImage(input) {
 }
 
 async function confirmCard() {
-  const name = document.getElementById('inp-cname').value.trim(); if (!name) return;
+  const name = document.getElementById('inp-cname').value.trim();
   const sub  = document.getElementById('inp-csub').value.trim();
   const reading = document.getElementById('inp-cread').value.trim();
+  // 名前が空でも、画像があれば保存OK（画像だけのカードを許可）。両方空なら何もしない
+  if (!name && !editingImg) return;
   const deck = currentDeck(); if (!deck) return;
   let rollback;
   if (editingCard.ki === null) {
@@ -3123,7 +3154,7 @@ function confirmAddColumn() {
   if (!name) return;
   const deck = currentDeck(); if (!deck) return;
   deck.columns.push({ id: _nextCid++, label: name, cards: [] });
-  save(); closeOv('ov-addcol'); renderQuiz();
+  save(); closeOv('ov-addcol'); _afterColChange();
 }
 
 function openColDialog(ci) {
@@ -3140,17 +3171,28 @@ function confirmColRename() {
   const name = document.getElementById('inp-colname').value.trim(); if (!name) return;
   const deck = currentDeck(); if (!deck) return;
   deck.columns[editingColIdx].label = name;
-  save(); closeOv('ov-col'); renderQuiz();
+  save(); closeOv('ov-col'); _afterColChange();
 }
 
 function confirmColDelete() {
   const deck = currentDeck(); if (!deck) return;
+  if (deck.columns.length <= 2) { showAlert('削除できません', '列は最低2つ必要です。'); return; }
   const colName = deck.columns[editingColIdx]?.label || 'この列';
   showConfirm(`「${colName}」を削除`, '列とすべてのカードが削除されます。',
     '削除する', 'キャンセル',
-    () => { deck.columns.splice(editingColIdx, 1); save(); closeOv('ov-col'); renderQuiz(); }
+    () => { deck.columns.splice(editingColIdx, 1); save(); closeOv('ov-col'); _afterColChange(); }
   );
 }
+
+// 列の変更後、今いる画面に合わせて再描画する
+function _afterColChange() {
+  if (deckView === 'detail' && decks.some(d => d.id === detailDeckId)) renderDeckDetail(detailDeckId);
+  else renderQuiz();
+}
+
+// 一覧ページから列を編集/追加する（対象デッキを合わせてからダイアログを開く）
+function detailEditCol(ci) { currentDeckId = detailDeckId; openColDialog(ci); }
+function detailAddColumn() { currentDeckId = detailDeckId; addColumn(); }
 
 function shuffleCards() {
   const deck = currentDeck(); if (!deck) return;
@@ -3423,6 +3465,14 @@ function showRandomResult(deck) {
   document.getElementById('result-overlay').classList.add('show');
 }
 
+// 結果カードの中身（画像・空名に対応）
+function _roCardBody(card, colLabel, extra = '') {
+  const img = card.img ? `<img src="${card.img}" class="ro-card-img" alt="">` : '';
+  const nm  = card.name ? card.name : (card.img ? '（画像）' : '（無題）');
+  return `${img}<div class="ro-card-name">${nm}</div><div class="ro-card-col">${colLabel}</div>${extra}`;
+}
+function _roName(card) { return card.name ? card.name : (card.img ? '（画像）' : '（無題）'); }
+
 function showResultOverlay() {
   const deck = currentDeck(); if (!deck) return;
   if (deck.randomMode) { showRandomResult(deck); return; }
@@ -3468,17 +3518,27 @@ function showResultOverlay() {
       const rc = document.createElement('div'); rc.className = 'ro-card';
       rc.style.borderLeftColor = sc;
       if (!ok) rc.style.background = 'rgba(255,92,92,.05)';
-      rc.innerHTML = `
-        <div class="ro-card-name">${card.name}</div>
-        <div class="ro-card-col">${colLabel}</div>
-        <div class="ro-card-verdict" style="color:${ok ? 'var(--ok)' : 'var(--ng)'}">${ok ? '✓ 正解' : '✗ 別グループに分類'}</div>
-      `;
+      rc.innerHTML = _roCardBody(card, colLabel,
+        `<div class="ro-card-verdict" style="color:${ok ? 'var(--ok)' : 'var(--ng)'}">${ok ? '✓ 正解' : '✗ 別グループに分類'}</div>`);
       cardsWrap.appendChild(rc);
     });
     grp.appendChild(cardsWrap); groupsEl.appendChild(grp);
   });
 
-  // Wrong cards detail（正解一覧と同じカード形式で表示）
+  // 間違えたカードを「1枚＝1行」でコンパクトに表示する
+  // グループに通し番号を振る（正解グループ＝登場順、ユーザーグループ＝登場順）
+  const ansOrder = [], usrOrder = [];
+  deck.columns.forEach(c => c.cards.forEach(cc => {
+    if (cc.answer   && !ansOrder.includes(cc.answer))    ansOrder.push(cc.answer);
+    if (cc.userColor && !usrOrder.includes(cc.userColor)) usrOrder.push(cc.userColor);
+  }));
+  const repName = (pid) => {           // グループの代表名（最初のカード）
+    for (const c of deck.columns) for (const cc of c.cards) if (cc.answer === pid) return _roName(cc);
+    return '';
+  };
+  const ansLabel = (pid) => pid ? `正解セット${ansOrder.indexOf(pid) + 1}（${repName(pid)}）` : '';
+  const usrLabel = (uc)  => uc  ? `あなたのセット${usrOrder.indexOf(uc) + 1}` : '未回答';
+
   const wrongs = [];
   deck.columns.forEach(col => col.cards.forEach(card => {
     if (card.answer && !isCardCorrect(card, deck)) wrongs.push({ card, col });
@@ -3489,45 +3549,20 @@ function showResultOverlay() {
   if (wrongs.length) {
     wrongsWrap.style.display = 'block';
     wrongs.forEach(({ card, col }) => {
-      // 自分がまとめたメンバー / 正解のメンバー（どちらも自分自身を含めて並べる）
-      const mine = [];
-      if (card.userColor) {
-        deck.columns.forEach(c => c.cards.forEach(cc => {
-          if (cc.userColor === card.userColor) mine.push({ card: cc, colLabel: c.label });
-        }));
-      }
-      const right = [];
-      deck.columns.forEach(c => c.cards.forEach(cc => {
-        if (cc.answer === card.answer) right.push({ card: cc, colLabel: c.label });
-      }));
-
-      const chips = (list, color, selfId) => list.map(({ card: cc, colLabel }) => `
-        <div class="ro-card" style="border-left-color:${color};${cc.id === selfId ? 'outline:2px solid ' + color + ';outline-offset:-1px;' : ''}">
-          <div class="ro-card-name">${cc.name}</div>
-          <div class="ro-card-col">${colLabel}</div>
-        </div>`).join('');
-
-      const grp = document.createElement('div');
-      grp.className = 'ro-group';
-      grp.innerHTML = `
-        <div class="ro-group-hdr" style="border-left:4px solid var(--ng)">
-          <div class="ro-color-bar" style="background:var(--ng)"></div>
-          <div class="ro-group-name" style="color:var(--ng)">${card.name}</div>
-          <div class="ro-group-score" style="color:var(--muted)">${col.label}</div>
-          <div class="ro-group-score" style="color:var(--ng);margin-left:10px;">✗ 不正解</div>
-        </div>
-        <div class="ro-wrong-sec">
-          <div class="ro-wrong-label" style="color:var(--ng)">✗ あなたの回答</div>
-          ${mine.length
-            ? `<div class="ro-cards">${chips(mine, 'var(--ng)', card.id)}</div>`
-            : `<div class="ro-wrong-empty">${card.userColor ? '他とつながっていません' : '未回答（線をつないでいません）'}</div>`}
-          <div class="ro-wrong-label" style="color:var(--ok)">✓ 正解</div>
-          ${right.length > 1
-            ? `<div class="ro-cards">${chips(right, 'var(--ok)', card.id)}</div>`
-            : `<div class="ro-wrong-empty">このカードは単独セットです</div>`}
-        </div>
-      `;
-      wrongsEl.appendChild(grp);
+      const img = card.img ? `<img src="${card.img}" class="ro-wrongrow-img" alt="">` : '';
+      const row = document.createElement('div');
+      row.className = 'ro-wrongrow';
+      row.innerHTML = `
+        ${img}
+        <div class="ro-wrongrow-main">
+          <div class="ro-wrongrow-name">${_roName(card)} <span class="ro-wrongrow-col">${col.label}</span></div>
+          <div class="ro-wrongrow-detail">
+            <span style="color:var(--ng)">✗ ${usrLabel(card.userColor)}</span>
+            <span style="color:var(--muted)">→</span>
+            <span style="color:var(--ok)">✓ ${ansLabel(card.answer)}</span>
+          </div>
+        </div>`;
+      wrongsEl.appendChild(row);
     });
   } else {
     wrongsWrap.style.display = 'none';
@@ -3700,6 +3735,7 @@ document.getElementById('inp-olines').addEventListener('input', updateOrderPrevi
   const loaded = await load();
   if (loaded) purgeFxDecks();
   if (!loaded || decks.length === 0) initDefaultDeck();
+  ensureHinshiDeck();   // 品詞（初級）例題を常に用意
   goTo('cover');
 })();
 </script>
