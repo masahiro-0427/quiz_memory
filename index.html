@@ -1,102 +1,36 @@
 ╔══════════════════════════════════════════════════════════════╗
-║  CONNECT 端末間コピー（jsonblob同期）パッチ v2                 ║
-║  Cornellノートと同じ「同期コード方式（GET/PUTのみ・POSTなし）」 ║
-║  送り手＝📤送る／受け手＝📥受け取る　を明確に分離              ║
+║  CONNECT 端末間コピー（jsonblob同期）— 整理版                  ║
+║  貼り付けは「1か所」だけ。CSS・画面・バッジは自動で入ります。   ║
 ╚══════════════════════════════════════════════════════════════╝
 
-card-connect.html に、下の【1】〜【4】を貼るだけです（ロジックは単体テスト済み）。
-既存の機能・保存データには一切触れません。
+■ 前より何が変わった？
+  前回は貼る場所が4か所ありました。今回は下の1ブロックを1か所に貼るだけ。
+  デザイン（CSS）・ダイアログ・左下バッジは、このブロックが起動時に自分で
+  画面へ差し込みます。他の場所を触る必要はありません。
 
-──────────────────────────────────────────────────────────────
 ■ 事前準備（初回だけ・1分）
-──────────────────────────────────────────────────────────────
-1. ブラウザで https://jsonblob.com を開く
-2. 表示された編集画面の中身を「{}」だけにして保存（右上の保存ボタン）
-3. アドレスバー末尾の長いID（例: 2f8a1c4e-… ）＝これが「同期コード」
-   → これを送り手・受け手の両端末で同じものを使います
+  1. https://jsonblob.com を開く
+  2. 中身を {} だけにして保存（右上）
+  3. アドレス末尾の長いID（例 2f8a1c4e-… ）＝これが「同期コード」
 
 ■ 使い方
-・送り手（今の内容を送りたい端末）：🔄同期 → コード入力 →「📤 この端末から送る」
-・受け手（取り込みたい端末）：🔄同期 → 同じコード入力 →「📥 クラウドから受け取る」
-  （受け手は上書きになるので確認ダイアログが出ます）
-・自動同期はしません。方向は毎回あなたが選びます（＝事故で上書きされない）。
-※ jsonblobは一定期間アクセスが無いとデータが消えます。大事な物は「💾バックアップ」も併用。
+  ・画面左下の「● 同期OFF / ☁ 同期ON」バッジをタップ→ダイアログが開く
+  ・送り手：コードを入れて「📤 この端末から送る」
+  ・受け手：同じコードを入れて「📥 クラウドから受け取る」（上書き・確認あり）
+  ・自動同期なし。方向は毎回あなたが選びます。
 
-
-══════════════════════════════════════════════════════════════
-【1】CSS を追加
-══════════════════════════════════════════════════════════════
-▼ 探す場所：ファイル内の「</style>」（CSSの終わり。1つしかありません）
-▼ その「</style>」の直前に、次を貼り付け：
-
-/* ── SYNC（端末間コピー） ── */
-#sync-badge { position:fixed; left:14px; bottom:14px; z-index:120; font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.5px; color:var(--muted); background:var(--surface); border:1.5px solid var(--border2); border-radius:20px; padding:6px 13px; box-shadow:var(--shadow); cursor:pointer; transition:all .15s; }
-#sync-badge:hover { border-color:var(--accent); color:var(--accent); }
-#sync-badge.on { color:var(--ok); border-color:var(--ok); background:var(--ok-bg); }
-.sync-sec { border:1.5px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px; }
-.sync-sec-title { font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:2px; margin-bottom:4px; }
-.sync-state { font-family:'Space Mono',monospace; font-size:10px; line-height:1.7; color:var(--muted); margin-top:6px; min-height:1.2em; }
-@media print { #sync-badge { display:none; } }
-
-
-══════════════════════════════════════════════════════════════
-【2】ダイアログ＋バッジ(HTML) を追加
-══════════════════════════════════════════════════════════════
-▼ 探す場所：この行
-
-<!-- ═══ CUSTOM MODAL ═══════════════════ -->
-
-▼ その直前に、次をまるごと貼り付け：
-
-<!-- ═══ SYNC DIALOG (端末間コピー) ═══════ -->
-<div class="overlay" id="ov-sync">
-  <div class="dialog" style="max-width:460px;width:calc(100% - 32px);">
-    <h3>🔄 端末間コピー</h3>
-    <p style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.6;">
-      同期コードを1つ決めて両方の端末に入れます。あとは「送る」「受け取る」で方向を選ぶだけ。
-    </p>
-    <label style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">同期コード（jsonblobのID または URL）</label>
-    <input id="sync-code" placeholder="jsonblobのID / URL を貼り付け" style="font-family:'Space Mono',monospace;font-size:13px;margin-top:5px;"/>
-    <div style="font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
-      初回：<b>jsonblob.com</b> を開くと保存領域が自動で作られます。アドレス末尾のIDをここに貼り付け。2台目以降は同じIDを入れるだけ。
-    </div>
-
-    <div class="sync-sec">
-      <div class="sync-sec-title" style="color:var(--accent);">① 送る（この端末 → クラウド）</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">この端末の全デッキを、コードの場所へアップロードします。</p>
-      <button class="btn b-ok" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncSend(this)">📤 この端末から送る</button>
-    </div>
-
-    <div class="sync-sec">
-      <div class="sync-sec-title" style="color:var(--setup-c);">② 受け取る（クラウド → この端末）</div>
-      <p style="font-size:11px;color:var(--ng);margin-bottom:10px;">⚠ この端末の今のデッキは、取り込んだ内容で上書きされます。</p>
-      <button class="btn b-setup" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncReceive(this)">📥 クラウドから受け取る</button>
-    </div>
-
-    <div class="sync-state" id="sync-state"></div>
-
-    <div class="dialog-btns">
-      <button class="btn" onclick="closeOv('ov-sync')">閉じる</button>
-      <button class="btn b-danger" id="sync-forget-btn" style="display:none;margin-left:auto;" onclick="syncForget()">コードを忘れる</button>
-    </div>
-  </div>
-</div>
-<div id="sync-badge" onclick="openSyncDialog()">● 同期OFF</div>
-
-
-══════════════════════════════════════════════════════════════
-【3】JavaScript を追加
-══════════════════════════════════════════════════════════════
-▼ 探す場所：このかたまり
+──────────────────────────────────────────────────────────────
+【貼る場所】card-connect.html の中の、このかたまりの《直前》
 
 // ══════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════
 
-▼ その直前に、次をまるごと貼り付け：
-
+【貼る内容】↓ここから下をまるごとコピーして貼り付け
+════════════════════════════════════════════════════════════════
 // ══════════════════════════════════════════
-//  端末間コピー（jsonblob・GET/PUTのみ／POSTしない・送り手/受け手を明確化）
+//  端末間コピー（jsonblob同期・GET/PUTのみ／送り手・受け手方式）
+//  ※このブロックだけで完結。CSS・ダイアログ・バッジは自動で差し込みます。
 // ══════════════════════════════════════════
 const JB_API = 'https://jsonblob.com/api/jsonBlob';
 const SYNC_CODE_KEY = 'connect_sync_code';
@@ -115,7 +49,7 @@ function _syncPayload() {
 }
 async function jbGet(id) {
   try {
-    const r = await fetch(JB_API + '/' + id, { headers:{ 'Accept':'application/json' } }); // Accept必須（jsonblobの癖）
+    const r = await fetch(JB_API + '/' + id, { headers:{ 'Accept':'application/json' } }); // Accept必須
     if (r.status === 404) return { notFound:true };
     if (!r.ok) return null;
     return { data: await r.json() };
@@ -171,7 +105,7 @@ async function doSyncSend(btn) {
   const ok = await jbPut(code, _syncPayload());
   btn.disabled = false; btn.textContent = lbl;
   if (ok) _syncState('✓ 送信しました。別端末で同じコードを入れて「受け取る」を押してください。', 'var(--ok)');
-  else _syncState('✗ 送信できませんでした。コードが正しいか、GitHub Pages 上で試しているか確認してください（アプリのプレビュー画面では外部通信できません）。', 'var(--ng)');
+  else _syncState('✗ 送信できませんでした。コードが正しいか、GitHub Pages 上で試しているか確認してください（プレビュー画面では外部通信できません）。', 'var(--ng)');
 }
 // 受け手：クラウド → この端末（上書き・確認あり）
 async function doSyncReceive(btn) {
@@ -180,8 +114,8 @@ async function doSyncReceive(btn) {
   _syncState('取得しています…');
   const res = await jbGet(code);
   btn.disabled = false; btn.textContent = lbl;
-  if (!res)            { _syncState('✗ 取得できませんでした。通信環境やコードを確認してください。', 'var(--ng)'); return; }
-  if (res.notFound)    { _syncState('✗ そのコードにデータがありません（未送信か期限切れ）。先に送り手側で「送る」を押してください。', 'var(--ng)'); return; }
+  if (!res)         { _syncState('✗ 取得できませんでした。通信環境やコードを確認してください。', 'var(--ng)'); return; }
+  if (res.notFound) { _syncState('✗ そのコードにデータがありません（未送信か期限切れ）。先に送り手側で「送る」を押してください。', 'var(--ng)'); return; }
   const d = (res.data && res.data.data) ? res.data.data : res.data;
   if (!d || !Array.isArray(d.decks)) { _syncState('✗ デッキデータが見つかりませんでした。', 'var(--ng)'); return; }
   closeOv('ov-sync');
@@ -198,43 +132,59 @@ function syncForget() {
   document.getElementById('sync-forget-btn').style.display = 'none';
   _syncState('この端末の同期コードを忘れました（クラウド側のデータは残ります）。');
 }
-function initSync() {
+// CSS・ダイアログ・バッジを自分で差し込み、状態を復元（多重実行しても安全）
+function _mountSync() {
+  if (document.getElementById('ov-sync')) return;   // 既に差し込み済みなら何もしない
+  const css = `
+    #sync-badge{position:fixed;left:14px;bottom:14px;z-index:120;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--muted);background:var(--surface);border:1.5px solid var(--border2);border-radius:20px;padding:6px 13px;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;}
+    #sync-badge:hover{border-color:var(--accent);color:var(--accent);}
+    #sync-badge.on{color:var(--ok);border-color:var(--ok);background:var(--ok-bg);}
+    .sync-sec{border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+    .sync-sec-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;margin-bottom:4px;}
+    .sync-state{font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;color:var(--muted);margin-top:6px;min-height:1.2em;}
+    @media print{#sync-badge{display:none;}}`;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const html = `
+    <div class="overlay" id="ov-sync">
+      <div class="dialog" style="max-width:460px;width:calc(100% - 32px);">
+        <h3>🔄 端末間コピー</h3>
+        <p style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.6;">同期コードを1つ決めて両方の端末に入れます。あとは「送る」「受け取る」で方向を選ぶだけ。</p>
+        <label style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">同期コード（jsonblobのID または URL）</label>
+        <input id="sync-code" placeholder="jsonblobのID / URL を貼り付け" style="font-family:'Space Mono',monospace;font-size:13px;margin-top:5px;"/>
+        <div style="font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:12px;">初回：<b>jsonblob.com</b> を開くと保存領域が自動で作られます。アドレス末尾のIDをここに貼り付け。2台目以降は同じIDを入れるだけ。</div>
+        <div class="sync-sec">
+          <div class="sync-sec-title" style="color:var(--accent);">① 送る（この端末 → クラウド）</div>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">この端末の全デッキを、コードの場所へアップロードします。</p>
+          <button class="btn b-ok" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncSend(this)">📤 この端末から送る</button>
+        </div>
+        <div class="sync-sec">
+          <div class="sync-sec-title" style="color:var(--setup-c);">② 受け取る（クラウド → この端末）</div>
+          <p style="font-size:11px;color:var(--ng);margin-bottom:10px;">⚠ この端末の今のデッキは、取り込んだ内容で上書きされます。</p>
+          <button class="btn b-setup" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncReceive(this)">📥 クラウドから受け取る</button>
+        </div>
+        <div class="sync-state" id="sync-state"></div>
+        <div class="dialog-btns">
+          <button class="btn" onclick="closeOv('ov-sync')">閉じる</button>
+          <button class="btn b-danger" id="sync-forget-btn" style="display:none;margin-left:auto;" onclick="syncForget()">コードを忘れる</button>
+        </div>
+      </div>
+    </div>
+    <div id="sync-badge" onclick="openSyncDialog()">● 同期OFF</div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
   try { syncCode = localStorage.getItem(SYNC_CODE_KEY) || null; } catch(e) { syncCode = null; }
   updateSyncBadge();
 }
-
-
-══════════════════════════════════════════════════════════════
-【4】起動時にバッジを出す ＋ 一覧に「🔄 同期」ボタン
-══════════════════════════════════════════════════════════════
-▼ (4-a) 探す場所：BOOT内のこの行
-
-  ensureHinshiDeck();   // 品詞（初級）例題を常に用意
-
-▼ その直後に1行追加：
-
-  initSync();           // 同期バッジの状態を復元
-
-────────────────────────────────
-
-▼ (4-b) 探す場所：renderDeckList 内のこの行の末尾
-（…「📂 読み込み</label>」で終わる長い1行）
-
-...title="バックアップから復元">📂 読み込み</label>`;
-
-▼ 「</label>」と「`」の間に、次を差し込む：
-
-<button class="btn b-quiz" onclick="openSyncDialog()" title="別端末とデッキをやり取り">🔄 同期</button>
-
-（貼った後はこうなります）
-...>📂 読み込み</label><button class="btn b-quiz" onclick="openSyncDialog()" title="別端末とデッキをやり取り">🔄 同期</button>`;
-
+_mountSync();
+════════════════════════════════════════════════════════════════
+【貼る内容】ここまで
 
 ──────────────────────────────────────────────────────────────
 ■ 補足
-──────────────────────────────────────────────────────────────
-・画面左下に「● 同期OFF / ☁ 同期ON」バッジが出ます。タップでダイアログが開きます。
-・デッキ一覧右上の「🔄 同期」からも開けます。
-・データはjsonblob上に平文で置かれます。コードを知る人は誰でも読めるので、
-  学習デッキ用途に留め、機密情報は入れないでください。
-・受け取りは「全置き換え」。自動マージはしません（競合が壊れる元なので排除）。
+  ・任意：デッキ一覧の右上にもボタンを置きたい場合は、renderDeckList 内の
+    「…📂 読み込み</label>」の直後（` の前）に次を足すと出ます。
+      <button class="btn b-quiz" onclick="openSyncDialog()" title="別端末とデッキをやり取り">🔄 同期</button>
+    （置かなくても、左下バッジからいつでも開けます）
+  ・データはjsonblob上に平文で置かれます。コードを知る人は読めるので、
+    学習デッキ用途に留め、機密情報は入れないでください。
+  ・受け取りは「全置き換え」。自動マージはしません。
+  ・不安なときは受け取り前に「💾 バックアップ」を取ると安全です。
