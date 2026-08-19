@@ -21,7 +21,149 @@
 
 ──────────────────────────────────────────────────────────────
 【貼る場所】card-connect.html の中の、このかたまりの《直前》
+// ══════════════════════════════════════════
+//  端末間コピー（jsonblob同期・GET/PUTのみ／送り手・受け手方式）
+//  ※このブロックだけで完結。CSS・ダイアログ・バッジは自動で差し込みます。
+// ══════════════════════════════════════════
+const JB_API = 'https://jsonblob.com/api/jsonBlob';
+const SYNC_CODE_KEY = 'connect_sync_code';
+let syncCode = null;
 
+function _normSyncId(s) {
+  s = (s || '').trim(); if (!s) return '';
+  const u = s.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (u) return u[0];
+  return s.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/').pop();
+}
+function _syncPayload() {
+  return { format:'card-connect-backup', version:1, exportedAt:new Date().toISOString(),
+    data:{ decks, _nextDid, _nextCid, _nextKid, _nextGid, extraPalette: PALETTE.slice(8) } };
+}
+async function jbGet(id) {
+  try {
+    const r = await fetch(JB_API + '/' + id, { headers:{ 'Accept':'application/json' } });
+    if (r.status === 404) return { notFound:true };
+    if (!r.ok) return null;
+    return { data: await r.json() };
+  } catch(e) { return null; }
+}
+async function jbPut(id, obj) {
+  try {
+    const r = await fetch(JB_API + '/' + id, { method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
+      body: JSON.stringify(obj) });
+    return r.ok;
+  } catch(e) { return false; }
+}
+function _applyRemote(d) {
+  if (!d || !Array.isArray(d.decks)) return false;
+  decks    = d.decks;
+  _nextDid = d._nextDid || (Math.max(0, ...decks.map(x => x.id)) + 1);
+  _nextCid = d._nextCid || 0; _nextKid = d._nextKid || 0; _nextGid = d._nextGid || 1;
+  if (Array.isArray(d.extraPalette)) d.extraPalette.forEach(p => { if (p && p.id && !getP(p.id)) PALETTE.push(p); });
+  decks.forEach(deck => deck.columns?.forEach(col => col.cards?.forEach(c => { c.answer = c.answer || null; c.userColor = c.userColor || null; })));
+  return true;
+}
+function updateSyncBadge() {
+  const b = document.getElementById('sync-badge'); if (!b) return;
+  b.textContent = syncCode ? '☁ 同期ON' : '● 同期OFF';
+  b.classList.toggle('on', !!syncCode);
+}
+function _syncState(msg, color) {
+  const el = document.getElementById('sync-state'); if (!el) return;
+  el.style.color = color || 'var(--muted)'; el.innerHTML = msg || '';
+}
+function openSyncDialog() {
+  document.getElementById('sync-code').value = syncCode || '';
+  document.getElementById('sync-forget-btn').style.display = syncCode ? 'inline-block' : 'none';
+  _syncState(syncCode ? `現在の同期コード：<b>${syncCode}</b>` : 'コードを入れて「送る」か「受け取る」を押してください。');
+  openOv('ov-sync');
+  setTimeout(() => document.getElementById('sync-code').focus(), 60);
+}
+function _ensureCode() {
+  const code = _normSyncId(document.getElementById('sync-code').value);
+  if (!code) { _syncState('✗ 同期コードを入力してください。', 'var(--ng)'); document.getElementById('sync-code').focus(); return null; }
+  syncCode = code;
+  try { localStorage.setItem(SYNC_CODE_KEY, code); } catch(e) {}
+  updateSyncBadge();
+  document.getElementById('sync-forget-btn').style.display = 'inline-block';
+  return code;
+}
+async function doSyncSend(btn) {
+  const code = _ensureCode(); if (!code) return;
+  btn.disabled = true; const lbl = btn.textContent; btn.textContent = '📤 送信中…';
+  _syncState('送信しています…');
+  const ok = await jbPut(code, _syncPayload());
+  btn.disabled = false; btn.textContent = lbl;
+  if (ok) _syncState('✓ 送信しました。別端末で同じコードを入れて「受け取る」を押してください。', 'var(--ok)');
+  else _syncState('✗ 送信できませんでした。コードが正しいか、GitHub Pages 上で試しているか確認してください（プレビュー画面では外部通信できません）。', 'var(--ng)');
+}
+async function doSyncReceive(btn) {
+  const code = _ensureCode(); if (!code) return;
+  btn.disabled = true; const lbl = btn.textContent; btn.textContent = '📥 受信中…';
+  _syncState('取得しています…');
+  const res = await jbGet(code);
+  btn.disabled = false; btn.textContent = lbl;
+  if (!res)         { _syncState('✗ 取得できませんでした。通信環境やコードを確認してください。', 'var(--ng)'); return; }
+  if (res.notFound) { _syncState('✗ そのコードにデータがありません（未送信か期限切れ）。先に送り手側で「送る」を押してください。', 'var(--ng)'); return; }
+  const d = (res.data && res.data.data) ? res.data.data : res.data;
+  if (!d || !Array.isArray(d.decks)) { _syncState('✗ デッキデータが見つかりませんでした。', 'var(--ng)'); return; }
+  closeOv('ov-sync');
+  showConfirm('受け取りますか？', `クラウドから ${d.decks.length} 個のデッキを取り込みます。\nこの端末の今のデッキはすべて置き換わります。`,
+    '置き換える', 'キャンセル', () => {
+      if (_applyRemote(d)) { save(); deckView = 'list'; goTo('decks'); showAlert('受け取り完了', `${decks.length} 個のデッキを取り込みました。`); }
+      else showAlert('取り込めません', 'データ形式が不正でした。');
+    });
+}
+function syncForget() {
+  syncCode = null;
+  try { localStorage.removeItem(SYNC_CODE_KEY); } catch(e) {}
+  updateSyncBadge();
+  document.getElementById('sync-forget-btn').style.display = 'none';
+  _syncState('この端末の同期コードを忘れました（クラウド側のデータは残ります）。');
+}
+function _mountSync() {
+  if (document.getElementById('ov-sync')) return;
+  const css = `
+    #sync-badge{position:fixed;left:14px;bottom:14px;z-index:120;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.5px;color:var(--muted);background:var(--surface);border:1.5px solid var(--border2);border-radius:20px;padding:6px 13px;box-shadow:var(--shadow);cursor:pointer;transition:all .15s;}
+    #sync-badge:hover{border-color:var(--accent);color:var(--accent);}
+    #sync-badge.on{color:var(--ok);border-color:var(--ok);background:var(--ok-bg);}
+    .sync-sec{border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+    .sync-sec-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;margin-bottom:4px;}
+    .sync-state{font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;color:var(--muted);margin-top:6px;min-height:1.2em;}
+    @media print{#sync-badge{display:none;}}`;
+  const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
+  const html = `
+    <div class="overlay" id="ov-sync">
+      <div class="dialog" style="max-width:460px;width:calc(100% - 32px);">
+        <h3>🔄 端末間コピー</h3>
+        <p style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.6;">同期コードを1つ決めて両方の端末に入れます。あとは「送る」「受け取る」で方向を選ぶだけ。</p>
+        <label style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">同期コード（jsonblobのID または URL）</label>
+        <input id="sync-code" placeholder="jsonblobのID / URL を貼り付け" style="font-family:'Space Mono',monospace;font-size:13px;margin-top:5px;"/>
+        <div style="font-size:10px;color:var(--muted);line-height:1.7;margin-bottom:12px;">初回：<b>jsonblob.com</b> を開くと保存領域が自動で作られます。アドレス末尾のIDをここに貼り付け。2台目以降は同じIDを入れるだけ。</div>
+        <div class="sync-sec">
+          <div class="sync-sec-title" style="color:var(--accent);">① 送る（この端末 → クラウド）</div>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:10px;">この端末の全デッキを、コードの場所へアップロードします。</p>
+          <button class="btn b-ok" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncSend(this)">📤 この端末から送る</button>
+        </div>
+        <div class="sync-sec">
+          <div class="sync-sec-title" style="color:var(--setup-c);">② 受け取る（クラウド → この端末）</div>
+          <p style="font-size:11px;color:var(--ng);margin-bottom:10px;">⚠ この端末の今のデッキは、取り込んだ内容で上書きされます。</p>
+          <button class="btn b-setup" style="width:100%;font-size:13px;padding:11px;" onclick="doSyncReceive(this)">📥 クラウドから受け取る</button>
+        </div>
+        <div class="sync-state" id="sync-state"></div>
+        <div class="dialog-btns">
+          <button class="btn" onclick="closeOv('ov-sync')">閉じる</button>
+          <button class="btn b-danger" id="sync-forget-btn" style="display:none;margin-left:auto;" onclick="syncForget()">コードを忘れる</button>
+        </div>
+      </div>
+    </div>
+    <div id="sync-badge" onclick="openSyncDialog()">● 同期OFF</div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  try { syncCode = localStorage.getItem(SYNC_CODE_KEY) || null; } catch(e) { syncCode = null; }
+  updateSyncBadge();
+}
+_mountSync();
 // ══════════════════════════════════════════
 //  BOOT
 // ══════════════════════════════════════════
