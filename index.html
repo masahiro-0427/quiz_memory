@@ -554,7 +554,7 @@ html { scroll-behavior:smooth; }
   </div>
   <div class="play-body">
     <div class="q-progress" id="arr-prog">Q1 / 10</div>
-    <div class="arr-inst">かたまりをタップして、正しい順に文を作ろう（使わないおとりも混ざっています）</div>
+    <div class="arr-inst">かたまりをタップして、正しい順に文を作ろう</div>
     <div class="q-card" style="padding:14px 18px;"><div class="arr-prompt" id="arr-prompt"></div></div>
     <div class="arr-slots" id="arr-slots"></div>
     <div class="arr-pool" id="arr-pool"></div>
@@ -1136,18 +1136,6 @@ const G5_C = [
 const G5A_NAME = '5文型① 英文→文型';
 const G5B_NAME = '5文型② 和文→文型';
 const G5C_NAME = '5文型③ 文型→英文（作文）';
-const CHEAT5 = [
-  '第1文型（SV）：〜は〜する（主語＋動詞だけ／後ろは副詞句）',
-  '第2文型（SVC）：〜は…だ／…になる（S＝C。be/become/look/smell）',
-  '第3文型（SVO）：〜は…を〜する（動詞の後ろに目的語1つ）',
-  '第4文型（SVOO）：〜は(人)に(物)を〜する（目的語が2つ）',
-  '第5文型（SVOC）：〜は(目的語)を(補語)と〜する（O＝C。call/make/name）',
-  '―― 代表的な目印の単語 ――',
-  'SV：go(行く) ／ come(来る) ／ run(走る) ／ rise(のぼる) ／ arrive(着く) ／ live(住む) ／ happen(起こる)',
-  'SVC：be(〜である) ／ become(〜になる) ／ look(〜に見える) ／ smell(〜のにおいがする) ／ get(〜になる) ／ feel(〜と感じる) ／ sound(〜に聞こえる)',
-  'SVOO：give(〜を与える) ／ tell(〜を伝える) ／ show(〜を見せる) ／ teach(〜を教える) ／ send(〜を送る) ／ buy(〜を買う) ／ make(〜を作る) ／ lend(〜を貸す)',
-  'SVOC：call(〜と呼ぶ) ／ make(〜にする) ／ name(〜と名づける) ／ keep(〜のままに保つ) ／ find(〜だとわかる) ／ leave(〜のままにする) ／ elect(〜に選ぶ)'
-];
 const G5_D = [
   ['He ___ a doctor.（第2文型）','is',['plays','runs','gives'],'a doctor は主語 He とイコール。be動詞 is で結ぶと SVC。'],
   ['Birds ___ in the morning.（第1文型）','sing',['make','call','are'],'Birds（主語）に動詞1語で文が完成する SV。in the morning は副詞句。'],
@@ -1166,55 +1154,6 @@ const G5_D = [
   ['You ___ tired today.（第2文型）','look',['give','build','send'],'tired（形容詞）が主語の様子を表す補語。look＋形容詞で SVC（〜に見える）。'],
 ];
 const G5D_NAME = '5文型④ 穴埋め';
-const PATTERN_EXP = {
-  '第1文型（SV）':'第1文型（SV）。主語＋動詞だけで文が成り立ち、後ろに目的語も補語もない（あるのは副詞句など）。例: Birds sing.／They arrived at the station.（at the station は副詞句）',
-  '第2文型（SVC）':'第2文型（SVC）。動詞の後ろの語が主語とイコールの関係（S＝C）。be動詞や become / look / smell / get が目印。例: He is a doctor.（He＝a doctor）',
-  '第3文型（SVO）':'第3文型（SVO）。動詞の後ろに『〜を』にあたる目的語が1つ。O は主語とイコールにならない（S≠O）。例: I play tennis.',
-  '第4文型（SVOO）':'第4文型（SVOO）。動詞の後ろに目的語が2つ（人＋物）並ぶ。give / tell / show / teach / make が目印。例: He gave me a book.（me＝人、a book＝物）',
-  '第5文型（SVOC）':'第5文型（SVOC）。目的語の後ろに、その目的語を説明する補語が来る（O＝C）。call / make / name / keep が目印。例: We call him Tom.（him＝Tom）',
-};
-const SENTENCE_INFO = {
-  'Birds sing.':{ja:'鳥は歌う（さえずる）',pat:'第1文型（SV）',note:'',bd:[['Birds','S','鳥は'],['sing','V','歌う']]},
-  'She runs fast.':{ja:'彼女は速く走る',pat:'第1文型（SV）',note:'fast などの副詞は文型に数えない',bd:[['She','S','彼女は'],['runs','V','走る'],['fast','M','速く']]},
-  'The sun rises in the east.':{ja:'太陽は東からのぼる',pat:'第1文型（SV）',note:'副詞句は文型に数えない',bd:[['The sun','S','太陽は'],['rises','V','のぼる'],['in the east','M','東で']]},
-  'They arrived at the station.':{ja:'彼らは駅に着いた',pat:'第1文型（SV）',note:'副詞句は文型に数えない',bd:[['They','S','彼らは'],['arrived','V','着いた'],['at the station','M','駅に']]},
-  'The baby is crying.':{ja:'赤ちゃんは泣いている',pat:'第1文型（SV）',note:'',bd:[['The baby','S','赤ちゃんは'],['is crying','V','泣いている']]},
-  'Flowers bloomed in the garden.':{ja:'花が庭で咲いた',pat:'第1文型（SV）',note:'副詞句は文型に数えない',bd:[['Flowers','S','花が'],['bloomed','V','咲いた'],['in the garden','M','庭で']]},
-  'Birds fly.':{ja:'鳥は飛ぶ',pat:'第1文型（SV）',note:'',bd:[['Birds','S','鳥は'],['fly','V','飛ぶ']]},
-  'He runs fast.':{ja:'彼は速く走る',pat:'第1文型（SV）',note:'fast は副詞なので数えない',bd:[['He','S','彼は'],['runs','V','走る'],['fast','M','速く']]},
-  'She arrived at the station.':{ja:'彼女は駅に着いた',pat:'第1文型（SV）',note:'副詞句は文型に数えない',bd:[['She','S','彼女は'],['arrived','V','着いた'],['at the station','M','駅に']]},
-  'He is a doctor.':{ja:'彼は医者だ',pat:'第2文型（SVC）',note:'S＝C（He＝a doctor）',bd:[['He','S','彼は'],['is','V','＝である'],['a doctor','C','医者']]},
-  'She became a teacher.':{ja:'彼女は先生になった',pat:'第2文型（SVC）',note:'S＝C（She＝a teacher）',bd:[['She','S','彼女は'],['became','V','なった'],['a teacher','C','先生に']]},
-  'The soup smells good.':{ja:'そのスープはよいにおいがする',pat:'第2文型（SVC）',note:'C が主語の様子を表す（S＝C）',bd:[['The soup','S','スープは'],['smells','V','においがする'],['good','C','よい']]},
-  'You look tired today.':{ja:'あなたは今日つかれて見える',pat:'第2文型（SVC）',note:'S＝C（today は副詞）',bd:[['You','S','あなたは'],['look','V','見える'],['tired','C','つかれて'],['today','M','今日']]},
-  'She looks happy.':{ja:'彼女は幸せそうに見える',pat:'第2文型（SVC）',note:'S＝C（She＝happy）',bd:[['She','S','彼女は'],['looks','V','見える'],['happy','C','幸せそうに']]},
-  'The leaves turned red.':{ja:'木の葉は赤くなった',pat:'第2文型（SVC）',note:'S＝C（葉＝赤い）',bd:[['The leaves','S','葉は'],['turned','V','なった'],['red','C','赤く']]},
-  'I am hungry.':{ja:'私は空腹だ',pat:'第2文型（SVC）',note:'S＝C（I＝hungry）',bd:[['I','S','私は'],['am','V','＝である'],['hungry','C','空腹']]},
-  'I play tennis.':{ja:'私はテニスをする',pat:'第3文型（SVO）',note:'O は『〜を』',bd:[['I','S','私は'],['play','V','する'],['tennis','O','テニスを']]},
-  'She wrote a letter.':{ja:'彼女は手紙を書いた',pat:'第3文型（SVO）',note:'',bd:[['She','S','彼女は'],['wrote','V','書いた'],['a letter','O','手紙を']]},
-  'They built a new house.':{ja:'彼らは新しい家を建てた',pat:'第3文型（SVO）',note:'',bd:[['They','S','彼らは'],['built','V','建てた'],['a new house','O','新しい家を']]},
-  'I bought a camera.':{ja:'私はカメラを買った',pat:'第3文型（SVO）',note:'',bd:[['I','S','私は'],['bought','V','買った'],['a camera','O','カメラを']]},
-  'He speaks English well.':{ja:'彼は英語を上手に話す',pat:'第3文型（SVO）',note:'well は副詞なので数えない',bd:[['He','S','彼は'],['speaks','V','話す'],['English','O','英語を'],['well','M','上手に']]},
-  'We watched a movie.':{ja:'私たちは映画を見た',pat:'第3文型（SVO）',note:'',bd:[['We','S','私たちは'],['watched','V','見た'],['a movie','O','映画を']]},
-  'He gave me a book.':{ja:'彼は私に本をくれた',pat:'第4文型（SVOO）',note:'人＋物の2目的語',bd:[['He','S','彼は'],['gave','V','あげた'],['me','O1','私に'],['a book','O2','本を']]},
-  'She told us a funny story.':{ja:'彼女は私たちにおもしろい話をした',pat:'第4文型（SVOO）',note:'人＋物の2目的語',bd:[['She','S','彼女は'],['told','V','話した'],['us','O1','私たちに'],['a funny story','O2','おもしろい話を']]},
-  'My mother made me a cake.':{ja:'母は私にケーキを作ってくれた',pat:'第4文型（SVOO）',note:'人＋物の2目的語',bd:[['My mother','S','母は'],['made','V','作った'],['me','O1','私に'],['a cake','O2','ケーキを']]},
-  'I sent her a birthday card.':{ja:'私は彼女に誕生日カードを送った',pat:'第4文型（SVOO）',note:'人＋物の2目的語',bd:[['I','S','私は'],['sent','V','送った'],['her','O1','彼女に'],['a birthday card','O2','誕生日カードを']]},
-  'He teaches us English.':{ja:'彼は私たちに英語を教える',pat:'第4文型（SVOO）',note:'人＋物の2目的語',bd:[['He','S','彼は'],['teaches','V','教える'],['us','O1','私たちに'],['English','O2','英語を']]},
-  'Please show me your ticket.':{ja:'私にあなたのチケットを見せてください',pat:'第4文型（SVOO）',note:'命令文でSは省略／人＋物の2目的語',bd:[['Please show','V','見せて'],['me','O1','私に'],['your ticket','O2','あなたのチケットを']]},
-  'We call him Tom.':{ja:'私たちは彼をトムと呼ぶ',pat:'第5文型（SVOC）',note:'O＝C（him＝Tom）',bd:[['We','S','私たちは'],['call','V','呼ぶ'],['him','O','彼を'],['Tom','C','トムと']]},
-  'The news made her happy.':{ja:'その知らせは彼女を幸せにした',pat:'第5文型（SVOC）',note:'O＝C（her＝happy）',bd:[['The news','S','知らせは'],['made','V','した'],['her','O','彼女を'],['happy','C','幸せに']]},
-  'We named the dog Pochi.':{ja:'私たちはそのイヌをポチと名づけた',pat:'第5文型（SVOC）',note:'O＝C（dog＝Pochi）',bd:[['We','S','私たちは'],['named','V','名づけた'],['the dog','O','イヌを'],['Pochi','C','ポチと']]},
-  'Keep your room clean.':{ja:'あなたの部屋をきれいにしておきなさい',pat:'第5文型（SVOC）',note:'命令文でSは省略／O＝C',bd:[['Keep','V','保つ'],['your room','O','あなたの部屋を'],['clean','C','きれいに']]},
-  'I found the book interesting.':{ja:'私はその本がおもしろいとわかった',pat:'第5文型（SVOC）',note:'O＝C（book＝interesting）',bd:[['I','S','私は'],['found','V','わかった'],['the book','O','その本が'],['interesting','C','おもしろいと']]},
-  'They elected him captain.':{ja:'彼らは彼を主将に選んだ',pat:'第5文型（SVOC）',note:'O＝C（him＝captain）',bd:[['They','S','彼らは'],['elected','V','選んだ'],['him','O','彼を'],['captain','C','主将に']]},
-};
-function sentExp(en, mode) {
-  const info = SENTENCE_INFO[en]; if (!info) return '';
-  const ja = info[0], bd = info[1];
-  if (mode === 'en') return '英語にすると：' + en + '\n' + bd;
-  return '和訳：「' + ja + '」\n' + bd;
-}
 const GRAMMAR_VER = 3;
 const SENT2 = {
   'Birds sing.':['第1文型（SV）','鳥が歌う（さえずる）','後ろは副詞（句）。文型には数えない。',[['Birds','S','鳥'],['sing','V','歌う']]],
@@ -1823,12 +1762,7 @@ const VC_NAME = '不規則動詞① 活用形（過去形・過去分詞）';
 const VT_NAME = '不規則動詞② 活用形→意味';
 function ensureGrammar5Decks() {
   const patOf = q => { const m = q.match(/「(.+?)」/); return m ? m[1] : ''; };
-  const info = en => SENTENCE_INFO[en] || null;
-  const cardFor = (q, a, en, showEn, pat, ds) => {
-    const i = info(en);
-    return { id:_nextCid++, q, a, ds: ds || [], en2: en, showEn: !!showEn,
-             pat: i ? i.pat : (pat || a), ja: i ? i.ja : '', note: i ? i.note : '', bd: i ? i.bd : null };
-  };
+  const cardFor = (q, a, en, showEn, pat, ds) => ({ id:_nextCid++, q, a, ds: ds || [] });
   const mkA = () => G5_A.map(w => cardFor(w[0], w[1], w[0], false, w[1], []));
   const mkB = () => G5_B.map(w => cardFor(w[0], w[1], w[2], true, w[1], []));
   const mkC = () => G5_C.map(w => cardFor(w[0], w[1], w[1], false, patOf(w[0]), w[2].slice()));
@@ -1837,7 +1771,7 @@ function ensureGrammar5Decks() {
     let d = decks.find(x => x.name === name);
     if (!d) { d = createDeck(name, desc || '5文型を4択で当てる'); d.cards = mk(); }
     else if (d.gv !== GRAMMAR_VER || d.cards.length < len) { d.cards = mk(); }
-    d.cheatsheet = CHEAT5; d.gv = GRAMMAR_VER;
+    d.cheatsheet = true; d.gv = GRAMMAR_VER;
   };
   setup(G5A_NAME, mkA, G5_A.length, '英文を見て文型を4択で');
   setup(G5B_NAME, mkB, G5_B.length, '和文を見て文型を4択で');
@@ -1948,33 +1882,6 @@ function startArrange(deckId, count) {
   document.getElementById('page-arrange').classList.add('active');
   renderArrange();
 }
-// おとり（ダミー）のかたまりを、同じデッキの他の文から作る。
-// 正解と同じ役割（S/V/O…）を優先し、足りなければ他の役割から補う。
-function _arrDummies(deck, q, want) {
-  if (!deck || want <= 0) return [];
-  const used = new Set(q.order.map(t => t.toLowerCase()));   // 正解に使う語は除外
-  const wantRoles = new Set(q.roles || []);
-  const sameRole = [], other = [];
-  deck.cards.forEach(c => {
-    if (c.a === q.a) return;                                 // 同じ問題のかたまりは使わない
-    const ord = c.order || [], rol = c.roles || [];
-    ord.forEach((w, i) => {
-      if (used.has(w.toLowerCase())) return;
-      (wantRoles.has(rol[i]) ? sameRole : other).push(w);
-    });
-  });
-  const uniq = arr => {                                      // 表記ゆれ含め重複を除去
-    const m = new Map();
-    arr.forEach(w => { const k = w.toLowerCase(); if (!m.has(k)) m.set(k, w); });
-    return [...m.values()];
-  };
-  const picks = _shuffle(uniq(sameRole));
-  if (picks.length < want) {
-    const have = new Set(picks.map(w => w.toLowerCase()));
-    _shuffle(uniq(other)).forEach(w => { if (!have.has(w.toLowerCase())) picks.push(w); });
-  }
-  return picks.slice(0, want);
-}
 // 正解順（id=0,1,2…）と一致しない並びになるまでシャッフル
 function _shuffleScrambled(tokens) {
   const arr = tokens.slice();
@@ -1990,15 +1897,9 @@ function _shuffleScrambled(tokens) {
 function renderArrange() {
   const q = AQ.questions[AQ.idx];
   AQ.answered = false;
-  // 正解のかたまり（正解順の index を id に）
+  // トークン（正解順の index を id に）→ 正解順と違う並びでシャッフル
   q.tokens = q.order.map((t, i) => ({ id: i, text: t }));
-  // おとり（ダミー）を追加：短い文ほど多めに混ぜ、単なる並べ替えにさせない
-  const deck = deckById(AQ.deckId);
-  const want = Math.max(2, 6 - q.order.length);
-  q.dummies = _arrDummies(deck, q, want).map(text => ({ id: -1, text: text, dummy: true }));
-  q.all = q.tokens.concat(q.dummies);        // 出題する全かたまり（ラベル固定用）
-  // ダミーがあれば全体をシャッフル。無ければ従来どおり正解と一致しない並びに
-  q.pool = q.dummies.length ? _shuffle(q.all.slice()) : _shuffleScrambled(q.tokens);
+  q.pool = _shuffleScrambled(q.tokens);
   q.slots = [];
   document.getElementById('arr-prog').textContent = `Q${AQ.idx + 1} / ${AQ.questions.length}`;
   document.getElementById('arr-score').textContent = AQ.score;
@@ -2011,7 +1912,7 @@ function renderArrange() {
   document.getElementById('arr-check').style.display = '';
   drawArrange();
 }
-const _LET = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+const _LET = ['A','B','C','D','E','F','G','H'];
 function drawArrange() {
   const q = AQ.questions[AQ.idx];
   const slotsEl = document.getElementById('arr-slots');
@@ -2028,7 +1929,7 @@ function drawArrange() {
   q.pool.forEach((tok) => {
     const b = document.createElement('button');
     b.className = 'arr-tok';
-    const lbl = _LET[q.all.indexOf(tok)] || '•';
+    const lbl = _LET[q.tokens.indexOf(tok)] || '•';
     b.innerHTML = `<span class="tok-badge">${lbl}</span>${escapeHtml(dispTok(tok.text, tok.id === 0))}`;
     b.onclick = () => { q.slots.push(tok); q.pool.splice(q.pool.indexOf(tok), 1); drawArrange(); syncCheck(); };
     poolEl.appendChild(b);
@@ -2045,21 +1946,19 @@ function dispTok(text, isFirst) {
 }
 function syncCheck() {
   const q = AQ.questions[AQ.idx];
-  // 正解の語数ぶん置けたらOK（おとりはプールに残っていてよい）
-  document.getElementById('arr-check').disabled = q.slots.length !== q.order.length;
+  document.getElementById('arr-check').disabled = q.pool.length !== 0;
 }
 function arrClear() {
   if (AQ.answered) return;
   const q = AQ.questions[AQ.idx];
-  q.pool = (q.dummies && q.dummies.length) ? _shuffle(q.all.slice()) : _shuffleScrambled(q.tokens);
-  q.slots = [];
+  q.pool = _shuffleScrambled(q.tokens); q.slots = [];
   drawArrange(); syncCheck();
 }
 function arrCheck() {
   const q = AQ.questions[AQ.idx];
-  if (AQ.answered || q.slots.length !== q.order.length) return;
+  if (AQ.answered || q.pool.length) return;
   AQ.answered = true;
-  const ok = q.slots.length === q.order.length && q.slots.every((tok, i) => tok.id === i);
+  const ok = q.slots.every((tok, i) => tok.id === i);
   // スロットに正誤の色をつける
   const slotsEl = document.getElementById('arr-slots');
   [...slotsEl.children].forEach((el, pos) => {
@@ -2474,7 +2373,7 @@ function openCountDialog(id, pool) {
   // アンチョコ対応デッキのときだけ、やさしいモードのチェックを出す
   const isArr = deck.mode === 'arrange';
   const row = document.getElementById('cheat-toggle-row');
-  if (row) row.style.display = (!isArr && deck.cheatsheet && deck.cheatsheet.length) ? 'flex' : 'none';
+  if (row) row.style.display = (!isArr && deck.cheatsheet) ? 'flex' : 'none';
   const tt = document.getElementById('timer-toggle');
   if (tt) { let on = true; try { on = localStorage.getItem('choice_timer') !== '0'; } catch(e) {} tt.checked = on; }
   const trow = document.getElementById('timer-toggle-row'); if (trow) trow.style.display = isArr ? 'none' : 'flex';
@@ -2587,7 +2486,7 @@ function cheatHtml() {
 }
 function _launchQuiz(deck, cards, diffKey, title, cheatOn, timed) {
   const diff = DIFFS[diffKey || currentDifficulty] || DIFFS.normal;
-  const cheat = (cheatOn && deck.cheatsheet && deck.cheatsheet.length) ? deck.cheatsheet : null;
+  const cheat = (cheatOn && deck.cheatsheet) ? true : null;
   const useTimer = (timed !== false);
   Q = {
     deckId: deck.id, deckName: title || deck.name,
