@@ -100,6 +100,13 @@ body {
 .deck-sec-head:hover .deck-sec-title { color:var(--accent); }
 .deck-sec-caret { font-size:11px; color:var(--muted); transition:transform .18s; }
 .deck-sec-head.collapsed .deck-sec-caret { transform:rotate(-90deg); }
+
+/* 作業用BGM */
+.bgm-ctrl { position:fixed; right:14px; bottom:14px; z-index:120; display:flex; align-items:center; gap:8px; background:var(--surface); border:1.5px solid var(--border2); border-radius:24px; padding:6px 12px 6px 8px; box-shadow:var(--shadow-lg); }
+.bgm-btn { width:36px; height:36px; border-radius:50%; border:none; cursor:pointer; font-size:16px; background:var(--surf2); color:var(--muted); transition:all .18s; }
+.bgm-btn.on { background:var(--accent); color:#fff; box-shadow:0 0 0 4px var(--accent2); }
+.bgm-vol { width:80px; accent-color:var(--accent); cursor:pointer; }
+@media (max-width:600px){ .bgm-ctrl { right:10px; bottom:10px; padding:5px 10px 5px 6px; } .bgm-vol { width:64px; } }
 .deck-sec-head:first-child { margin-top:4px; }
 .deck-sec-icon { font-size:18px; }
 .deck-sec-title { font-family:'Zen Maru Gothic',sans-serif; font-weight:700; font-size:18px; letter-spacing:1px; color:var(--text); }
@@ -174,6 +181,21 @@ body {
 
 /* ═══ QUIZ PLAY ═══ */
 #page-play.active { display:flex; flex-direction:column; min-height:100vh; }
+#page-arrange.active { display:flex; flex-direction:column; min-height:100vh; }
+.arr-inst { text-align:center; font-size:11px; color:var(--muted); margin-bottom:10px; }
+.arr-prompt { font-size:17px; font-weight:700; color:var(--text); line-height:1.6; text-align:center; }
+.arr-slots { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-height:52px; padding:10px; margin:14px 0; border:2px dashed var(--border2); border-radius:12px; background:var(--surf2); }
+.arr-slots:empty::before { content:'ここに文ができます'; color:var(--muted); font-size:12px; }
+.arr-pool { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:16px; min-height:48px; }
+.arr-tok { display:inline-flex; align-items:center; gap:7px; padding:10px 14px; border-radius:12px; border:2px solid var(--border2); background:var(--surface); font-size:16px; font-weight:700; color:var(--text); cursor:pointer; box-shadow:var(--shadow); transition:transform .1s, border-color .15s; }
+.arr-tok:hover { border-color:var(--accent); }
+.arr-tok:active { transform:scale(.95); }
+.arr-tok .tok-badge { font-family:'Space Mono',monospace; font-size:11px; font-weight:700; color:#fff; background:var(--accent); width:20px; height:20px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; }
+.arr-tok.placed { background:var(--accent); color:#fff; border-color:var(--accent); }
+.arr-tok.placed .tok-badge { background:rgba(255,255,255,.3); }
+.arr-tok.ok { background:var(--ok); border-color:var(--ok); color:#fff; }
+.arr-tok.ng { background:var(--ng); border-color:var(--ng); color:#fff; }
+.arr-actions { display:flex; gap:10px; justify-content:center; margin-bottom:8px; }
 .play-top { padding:12px 28px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; align-items:center; gap:12px; flex-wrap:wrap; box-shadow:0 1px 4px rgba(0,0,0,.06); position:sticky; top:0; z-index:20; }
 .play-deck-name { font-family:'Zen Maru Gothic',sans-serif; font-size:22px; letter-spacing:2px; color:var(--accent); line-height:1; }
 .play-hud { margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -239,21 +261,19 @@ body {
 .explain.ok .lbl { color:var(--ok); }
 
 /* ── アンチョコ（やさしいモードのヒント一覧）── */
-.cheat-panel { display:none; width:100%; background:#fff8ed; border:1.5px solid var(--setup-c); border-radius:10px; padding:10px 14px; margin-bottom:16px; max-height:40vh; overflow-y:auto; }
+.cheat-panel { display:none; width:100%; background:#fff8ed; border:1.5px solid var(--setup-c); border-radius:10px; padding:8px 12px; margin-bottom:12px; }
 .cheat-panel.show { display:block; animation:fadeUp .25s ease; }
-.cheat-title { font-family:'Zen Maru Gothic',sans-serif; font-size:10px; letter-spacing:1px; color:var(--setup-c); text-transform:uppercase; margin-bottom:6px; }
-.cheat-lines { display:flex; flex-direction:column; gap:3px; }
+.cheat-title { font-family:'Zen Maru Gothic',sans-serif; font-size:10px; letter-spacing:1px; color:var(--setup-c); text-transform:uppercase; margin-bottom:5px; }
+.cheat-lines { display:flex; flex-direction:column; gap:2px; }
 .cheat-line { font-size:12px; line-height:1.6; color:var(--text); }
 .cheat-line.head { margin-top:5px; text-align:center; color:var(--setup-c); font-weight:700; letter-spacing:1px; }
 .c-s { color:var(--accent); font-weight:700; } .c-v { color:var(--ng); font-weight:700; } .c-o { color:var(--quiz-c); font-weight:700; } .c-c { color:var(--ok); font-weight:700; } .c-m { color:var(--muted); font-weight:700; }
-.cheat-steps { background:#fffdf7; border:1px dashed var(--setup-c); border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12px; line-height:1.8; }
+.cheat-steps { background:#fffdf7; border:1px dashed var(--setup-c); border-radius:8px; padding:6px 9px; margin-bottom:6px; font-size:11px; line-height:1.5; }
 .cheat-steps b { color:var(--setup-c); }
-.cheat-sec { padding:7px 0; border-top:1px solid #f0d9b5; }
-.cheat-sec:first-of-type { border-top:none; }
-.cheat-h { font-size:13px; font-weight:700; }
-.cheat-mean { font-weight:400; color:var(--text); }
-.cheat-w { font-size:12px; line-height:1.8; margin-top:2px; }
-.cheat-w .lab { font-family:'Zen Maru Gothic',sans-serif; font-size:9px; color:var(--muted); margin-right:4px; }
+.cheat-role { display:flex; align-items:baseline; gap:6px; padding:3px 0; border-top:1px solid #f0d9b5; font-size:11.5px; line-height:1.35; flex-wrap:wrap; }
+.cheat-role > .c-s, .cheat-role > .c-v, .cheat-role > .c-o, .cheat-role > .c-c, .cheat-role > .c-m { flex:0 0 58px; }
+.cheat-role .cheat-mean { color:var(--muted); font-size:10px; flex:0 0 auto; }
+.cheat-role .cheat-ex { color:var(--text); margin-left:auto; }
 
 /* ── LIFELINES（ヒント・50:50）── */
 .lifelines { display:flex; gap:10px; width:100%; margin-bottom:14px; }
@@ -522,7 +542,30 @@ html { scroll-behavior:smooth; }
   </div>
 </div>
 
-<!-- ═══ COUNT DIALOG ═══ -->
+<!-- ═══ ARRANGE（並べ替えで文づくり）═══ -->
+<div id="page-arrange" class="page">
+  <div class="play-top">
+    <button class="btn" onclick="quitArrange()" style="padding:6px 10px;">← やめる</button>
+    <div class="play-deck-name" id="arr-deck-name">DECK</div>
+    <div class="play-hud">
+      <div class="hud-pill"><div class="hud-num s-ok" id="arr-score">0</div><div class="hud-label">SCORE</div></div>
+      <div class="hud-pill"><div class="hud-num s-gold" id="arr-combo">0</div><div class="hud-label">COMBO</div></div>
+    </div>
+  </div>
+  <div class="play-body">
+    <div class="q-progress" id="arr-prog">Q1 / 10</div>
+    <div class="arr-inst">かたまりをタップして、正しい順に文を作ろう（使わないおとりも混ざっています）</div>
+    <div class="q-card" style="padding:14px 18px;"><div class="arr-prompt" id="arr-prompt"></div></div>
+    <div class="arr-slots" id="arr-slots"></div>
+    <div class="arr-pool" id="arr-pool"></div>
+    <div class="arr-actions">
+      <button class="btn" id="arr-clear" onclick="arrClear()">↺ 並べ直す</button>
+      <button class="btn b-quiz" id="arr-check" onclick="arrCheck()" disabled>こたえあわせ</button>
+    </div>
+    <div class="explain" id="arr-explain"><span class="lbl" id="arr-explain-lbl">解説</span><span id="arr-explain-text"></span></div>
+    <div class="play-next"><button class="next-btn" id="arr-next" onclick="arrNext()">次へ →</button></div>
+  </div>
+</div>
 <div class="overlay" id="ov-count">
   <div class="dialog" style="max-width:380px;">
     <h3>クイズを始める</h3>
@@ -557,6 +600,12 @@ html { scroll-behavior:smooth; }
 <div id="fx-flash"></div>
 
 <div id="save-toast" class="save-toast">💾 保存しました</div>
+
+<!-- 作業用BGM（Web Audioで生成・オン/オフ・音量） -->
+<div id="bgm-ctrl" class="bgm-ctrl">
+  <button id="bgm-btn" class="bgm-btn" onclick="toggleBgm()" title="作業用BGM">♪</button>
+  <input id="bgm-vol" class="bgm-vol" type="range" min="0" max="100" value="40" oninput="setBgmVolume(this.value)" title="音量"/>
+</div>
 
 <script>
 'use strict';
@@ -772,106 +821,14 @@ function ensureGobunkeiDeck() {
 // 中学英語 レベル1（でる順 LEVEL1 0001〜より・スキャンから読み取り）
 // [英単語, 日本語の意味]。be動詞は選択肢がかぶらないよう主語で区別。
 const WORDS_L1 = [
-  ['the','その'], ['to','〜へ、〜に'], ['I','私は'], ['a, an','1つの'],
-  ['in','〜の中に'], ['and','〜と、そして'], ['you','あなたは、あなたを'], ['is','〜である（he/she/it が主語）'],
-  ['of','〜の'], ['it','それは、それを'], ['have','〜を持っている'], ['not','〜でない'],
-  ['was','〜だった（単数が主語）'], ['that','あれ、それ'], ['for','〜のために'], ['he','彼は'],
-  ['do','〜をする'], ['are','〜である（you・複数が主語）'], ['we','私たちは'], ['about','〜について'],
-  ['will','〜だろう、〜するつもりだ'], ['they','彼らは'], ['people','人々'], ['she','彼女は'],
-  ['at','〜で、〜に'], ['can','〜できる'], ['my','私の'], ['go','行く'],
-  ['with','〜と一緒に'], ['say','（〜と）言う'], ['but','しかし'], ['on','〜の上に'],
-  ['want','〜がほしい'], ['when','いつ、〜するとき'], ['there','そこに'], ['this','これ、この'],
-  ['what','何'], ['so','そんなに、それで'], ['from','〜から'], ['her','彼女の、彼女を'],
-  ['his','彼の'], ['think','（〜と）思う、考える'], ['did','（do・doesの過去形）'], ['make','〜をつくる、〜を…にする'],
-  ['very','非常に'], ['me','私を、私に'], ['like','〜が好きである、〜のような'], ['see','〜が見える、〜を見る'],
-  ['many','たくさんの'], ['one','1つ、1つの'], ['because','〜なので'], ['them','彼らを、彼らに'],
-  ['be','be動詞の原形'], ['some','いくつかの'], ['how','どうやって、どれほど'], ['school','学校'],
-  ['time','時刻、時間'], ['your','あなたの'], ['know','（〜を）知っている'], ['am','〜である（I が主語）'],
-  ['good','よい、じょうずな'], ['get','〜を得る、手に入れる'], ['were','〜だった（you・複数が主語）'], ['day','1日、昼間'],
-  ['more','より多くの、もっと'], ['their','彼らの、彼女らの'], ['thing','もの、こと'], ['use','〜を使う'],
-  ['as','〜のように、〜として'], ['come','来る'], ['other','ほかの、別の'], ['look','（注意して）見る、〜のように見える'],
-  ['take','〜を取る、連れていく'], ['year','年、〜歳'], ['by','（手段）〜で、〜のそばに'], ['our','私たちの'],
-  ['student','生徒、学生'], ['talk','話す'], ['Mr.','〜さん、〜氏'], ['all','全部の、すべて'],
-  ['English','英語'], ['now','今'], ['Japanese','日本人、日本語'], ['find','〜を見つける'],
-  ['if','もし〜なら'], ['tell','（〜に）話す、教える'], ['him','彼を、彼に'], ['yes','はい'],
-  ['after','〜のあとに'], ['work','働く、仕事'], ['or','または、あるいは'], ['who','だれ'],
-  ['Japan','日本'], ['first','最初の、第1の'], ['lot','たくさん'], ['could','〜することができた'],
-  ['then','そのとき、それから'], ['give','〜を与える、あげる'], ['learn','（〜を）学ぶ、習う'], ['us','私たちを、私たちに'],
-  ['help','（〜を）助ける、手伝い'], ['also','〜もまた'], ['well','じょうずに、よく'], ['should','〜すべきである'],
-  ['book','本'], ['ask','（〜に）たずねる、頼む'], ['friend','友だち'], ['play','遊ぶ、（スポーツ）をする'],
-  ['than','〜よりも'], ['why','なぜ'], ['too','〜もまた、あまりに〜すぎて'], ['enjoy','〜を楽しむ'],
-  ['study','（〜を）勉強する'], ['man','男の人、男性'], ['old','古い、年とった'], ['no','少しも〜ない、いいえ'],
-  ['question','質問、問題'], ['way','道、方法'], ['country','国、いなか'], ['two','2つの、2'],
-  ['next','次の、隣りの'], ['food','食べ物、食料'], ['become','〜になる'], ['try','（〜を）試みる'],
-  ['read','（〜を）読む'], ['much','多量の、たくさんの'], ['new','新しい'], ['thank','〜に感謝する'],
-  ['live','住む、生きる'], ['start','始まる、出発する'], ['happy','幸福な、楽しい'], ['right','正しい、右の'],
-  ['really','本当に'], ['child','子ども'], ['something','何か、あるもの'], ['world','世界'],
-  ['need','〜を必要とする、必要'], ['important','重要な、大切な'], ['long','長い、長く'], ['life','生活、生命、人生'],
-  ['eat','（〜を）食べる'], ['up','上へ'], ['which','どちら、どの'], ['only','ただ1つの、ただ〜だけ'],
-  ['visit','〜を訪れる、訪問'], ['show','（〜に）見せる、教える'], ['mother','母（親）'], ['every','どの〜も、毎〜'],
-  ['last','最後の、この前の'], ['home','家庭、家、家へ'], ['high','高い、高く'], ['before','〜の前に、〜する前に'],
-  ['father','父（親）'], ['picture','写真、絵'], ['hear','〜が聞こえる'], ['family','家族'],
-  ['buy','〜を買う'], ['place','場所'], ['would','（willの過去形）〜だろう'], ['different','違った、異なる'],
-  ['class','クラス、学級、授業'], ['these','これら、これらの'], ['does','（doの3人称単数現在形）'], ['kind','親切な、種類'],
-  ['house','家'], ['hard','熱心に、難しい'], ['idea','考え'], ['oh','おお、まあ'],
-  ['write','（〜を）書く'], ['feel','（〜を）感じる'], ['woman','女の人、女性'], ['word','語、単語、ことば'],
-  ['around','〜のまわりに'], ['call','（〜を）よぶ、電話をかける'], ['today','今日（は）'], ['here','ここに'],
-  ['just','ちょうど、たった今'], ['better','よりよい、よりよく'], ['back','戻って、後ろへ、背中'], ['out','外へ'],
-  ['understand','（〜を）理解する'], ['each','それぞれの、各自'], ['please','どうぞ、〜を喜ばせる'], ['Ms.','〜さん、〜先生'],
-  ['water','水'], ['small','小さい'], ['big','大きい'], ['let','〜しよう'],
-  ['may','〜してもよい、〜かもしれない'], ['three','3つの、3'], ['problem','問題'], ['most','最も多くの、たいていの'],
-  ['always','いつも、常に'], ['walk','歩く、散歩'], ['great','すばらしい、偉大な'], ['answer','（〜に）答える、答え'],
-  ['teacher','先生'], ['game','試合、ゲーム'], ['again','再び、また'], ['city','市、都市'],
-  ['leave','（〜を）去る、〜を残す'], ['into','〜の中へ'], ['often','よく、しばしば'], ['speak','（〜を）話す'],
-  ['watch','〜をじっと見る、腕時計'], ['keep','〜を持ち続ける、保つ'], ['same','同じ'], ['week','週'],
-  ['change','〜を変える、変わる、変化'], ['where','どこに'], ['any','いくらかの、どんな〜も'], ['money','お金'],
-  ['morning','朝、午前'], ['beautiful','美しい、きれいな'], ['meet','（〜に）会う'], ['future','未来、将来'],
-  ['animal','動物'], ['interested','興味を持った'], ['OK','よろしい、だいじょうぶな'], ['name','名前、〜に名前をつける'],
-  ['interesting','おもしろい、興味深い'], ['best','最もよい、最もよく'], ['difficult','難しい'], ['little','小さい、少量の'],
-  ['example','例'], ['room','部屋、余地'], ['job','仕事、職'], ['stay','滞在する、滞在'],
-  ['put','〜を置く、入れる'], ['sure','確信して、確かな'], ['never','決して〜ない'], ['together','一緒に'],
-  ['practice','（〜を）練習する、練習'], ['another','別の、もう1つの'], ['dog','イヌ'], ['town','町'],
-  ['stop','〜をやめる、（立ち）止まる'], ['mean','〜を意味する'], ['month','月'], ['decide','（〜を）決める、決心する'],
-  ['run','走る、流れる'], ['clean','〜をきれいにする、清潔な'], ['teach','（〜に）教える'], ['team','チーム'],
-  ['station','駅'], ['young','若い'], ['move','〜を動かす、動く'], ['even','〜でさえも'],
-  ['begin','始まる、〜を始める'], ['hope','〜を望む、希望'], ['join','〜に参加する、加わる'], ['over','〜のま上に、〜を越えて'],
-  ['night','夜、夜間'], ['experience','経験、〜を経験する'], ['been','beの過去分詞'], ['remember','〜を思い出す、覚えている'],
-  ['bring','〜を持って（連れて）くる'], ['love','〜を愛する、愛'], ['near','〜の近くに、近い'], ['America','アメリカ、米国'],
-  ['library','図書館'], ['hi','やあ、こんにちは'], ['ago','（今から）〜前に'], ['park','公園'],
-  ['boy','男の子'], ['shop','店、買い物をする'], ['part','部分、役割'], ['nice','すてきな、親切な'],
-  ['club','クラブ'], ['such','そのような'], ['train','列車、電車'], ['member','（集団の）一員'],
-  ['everyone','だれでも、みんな'], ['sometimes','ときどき'], ['during','〜の間ずっと、〜の間に'], ['grow','成長する、〜を栽培する'],
-  ['story','話、物語'], ['foreign','外国の'], ['mountain','山'], ['number','数、番号'],
-  ['bus','バス'], ['summer','夏'], ['minute','分'], ['easy','簡単な'],
-  ['still','まだ、今でも'], ['listen','（耳を傾けて）聞く'], ['popular','人気のある、流行の'], ['hour','1時間、時間帯'],
-  ['sound','音、〜に聞こえる'], ['few','少数の、ほとんど〜ない'], ['soon','まもなく、すぐに'], ['however','しかしながら'],
-  ['sleep','眠る、眠り'], ['girl','女の子'], ['down','下へ、〜の下のほうへ'], ['course','進路、コース、課程'],
-  ['sorry','すまなく思って、気の毒で'], ['festival','祭り'], ['lunch','昼食'], ['high school','高校'],
-  ['send','（〜に）送る'], ['surprised','驚いた、びっくりした'], ['own','自分自身の、〜を所有する'], ['those','あれら、それら'],
-  ['scientist','科学者'], ['later','より遅く、あとで'], ['person','人'], ['music','音楽'],
-  ['enough','十分な、十分に'], ['brother','兄弟、兄、弟'], ['usually','たいてい、ふつうは'], ['away','離れて、去って'],
-  ['believe','（〜を）信じる'], ['finish','〜を終える、終わる'], ['hand','手'], ['light','明かり、光、明るい'],
-  ['through','〜を通して、通って'], ['while','〜する間に'], ['without','〜なしで'], ['five','5つの、5'],
-  ['dream','夢、夢を見る'], ['smile','ほほえむ、ほほえみ'], ['sport','スポーツ'], ['car','車'],
-  ['earth','地球、大地'], ['movie','映画'], ['letter','手紙、文字'], ['four','4つの、4'],
-  ['tree','木'], ['happen','（偶然に）起こる'], ['anything','何か、何でも'], ['wait','待つ'],
-  ['parent','親、両親'], ['second','2番目の、秒'], ['open','〜を開ける、開いている'], ['player','競技者、演奏者'],
-  ['able','〜できる（be able to）'], ['its','その、それの'], ['hello','こんにちは、もしもし'], ['museum','博物館、美術館'],
-  ['care','世話、注意'], ['language','言語'], ['special','特別な'], ['Australia','オーストラリア'],
-  ['information','情報、案内'], ['group','集団、グループ'], ['must','〜しなければならない、〜にちがいない'], ['famous','有名な'],
-  ['tea','茶、紅茶'], ['sister','姉妹、姉、妹'], ['large','大きい、広い'], ['soccer','サッカー'],
-  ['paper','紙、新聞'], ['culture','文化'], ['bad','悪い、へたな'], ['hold','〜を手に持つ、（会など）を開く'],
-  ['restaurant','レストラン'], ['tomorrow','明日（は）'], ['lose','〜を失う、（試合などに）負ける'], ['Sunday','日曜日'],
-  ['both','両方、両方の'], ['bag','かばん'], ['birthday','誕生日'], ['wonderful','すばらしい'],
-  ['plant','植物、工場'], ['flower','花'], ['front','前部、正面、前の'], ['trip','旅行'],
-  ['yesterday','昨日（は）'], ['someone','だれか'], ['choose','（〜を）選ぶ'], ['space','空間、宇宙'],
-  ['song','歌'], ['volunteer','ボランティア'], ['turn','〜を回す、曲がる'], ['history','歴史'],
-  ['event','行事、できごと'], ['travel','（〜を）旅行する、旅行'], ['bird','鳥'], ['worry','心配する'],
-  ['favorite','お気に入りの、大好きな'], ['river','川'], ['bike','自転車'], ['early','早く、（時間的に）早い'],
-  ['robot','ロボット'], ['activity','活動'], ['sit','すわる'], ['drink','〜を飲む、飲み物'],
-  ['afternoon','午後'], ['fast','速い、速く'], ['science','理科、科学'], ['grandfather','祖父'],
-  ['speech','スピーチ'], ['sing','（〜を）歌う'], ['doctor','医者、博士'], ['since','〜以来、〜して以来'],
-  ['strong','強い、（味が）濃い'], ['sea','（theをつけて）海'], ['between','（2つのもの）の間に'], ['useful','役に立つ'],
+  ['important','重要な、大切な'], ['different','違った、異なる'], ['idea','考え'], ['future','未来、将来'],
+  ['difficult','難しい'], ['example','例'], ['decide','（〜を）決める、決心する'], ['experience','経験、〜を経験する'],
+  ['foreign','外国の'], ['popular','人気のある、流行の'], ['language','言語'], ['special','特別な'],
+  ['information','情報、案内'], ['famous','有名な'], ['culture','文化'], ['history','歴史'],
+  ['event','行事、できごと'], ['activity','活動'], ['useful','役に立つ'], ['question','質問、問題'],
+  ['understand','（〜を）理解する'], ['problem','問題'], ['interesting','おもしろい、興味深い'], ['remember','〜を思い出す、覚えている'],
+  ['member','（集団の）一員'], ['number','数、番号'], ['scientist','科学者'], ['believe','（〜を）信じる'],
+  ['wonderful','すばらしい'], ['volunteer','ボランティア'], ['doctor','医者、博士'],
 ];
 const L1_EJ_NAME = '中学英語L1 英→日';
 const L1_JE_NAME = '中学英語L1 日→英';
@@ -880,114 +837,29 @@ function ensureLevel1Decks() {
   const mkJE = () => WORDS_L1.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
   const ej = decks.find(d => d.name === L1_EJ_NAME);
   if (!ej) { const d = createDeck(L1_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length < WORDS_L1.length) { ej.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_L1.length) { ej.cards = mkEJ(); }
   const je = decks.find(d => d.name === L1_JE_NAME);
   if (!je) { const d = createDeck(L1_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length < WORDS_L1.length) { je.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_L1.length) { je.cards = mkJE(); }
   save();
 }
 
 const WORDS_L2 = [
-  ['cannot','（canの否定形）〜できない'], ['sad','悲しい'], ['company','会社'], ['Saturday','土曜日'],
-  ['true','真実の、本当の'], ['hospital','病院'], ['point','点、要点、指をさす'], ['party','パーティー、一団'],
-  ['cook','（〜を）料理する、料理人'], ['human','人間の、人間'], ['agree','同意する'], ['dinner','夕食'],
-  ['computer','コンピュータ'], ['cold','寒い、冷たい、かぜ'], ['table','テーブル'], ['eye','目'],
-  ['win','（競技などに）勝つ、（賞など）を得る'], ['ten','10の、10'], ['almost','ほとんど'], ['TV','テレビ'],
-  ['build','〜を建てる'], ['fly','飛ぶ、飛行機で行く'], ['tennis','テニス'], ['wear','〜を着ている、身につけている'],
-  ['building','建物'], ['sell','〜を売る、売れる'], ['off','離れて、〜から離れて'], ['American','アメリカ人、アメリカ（人）の'],
-  ['junior high school','中学校'], ['homework','宿題'], ['blue','青い、青色'], ['energy','力、エネルギー'],
-  ['program','番組、計画'], ['grandmother','祖母'], ['glad','うれしい'], ['plan','計画、（〜を）計画する'],
-  ['classmate','クラスメイト'], ['spend','（金銭）を使う、（時間）を過ごす'], ['body','身体'], ['color','色'],
-  ['Internet','（theをつけて）インターネット'], ['break','〜をこわす、こわれる、休憩'], ['until','〜まで（ずっと）、〜するまで'], ['fish','魚、魚肉、釣りをする'],
-  ['message','伝言、メッセージ'], ['mom','ママ、お母さん'], ['reason','理由'], ['fun','楽しみ、おもしろさ'],
-  ['carry','〜を運ぶ、〜を持ち歩く'], ['ever','かつて、今までに'], ['chance','機会'], ['green','緑色の、緑色'],
-  ['traditional','伝統的な'], ['sick','病気の、気分が悪い'], ['box','箱'], ['store','店、〜を蓄える'],
-  ['vacation','（比較的長い）休暇'], ['feeling','気持ち、感覚'], ['warm','暖かい'], ['white','白い、白色'],
-  ['close','〜を閉める、ごく近い'], ['rain','雨が降る、雨'], ['street','通り、街路'], ['draw','（線で図・絵）を描く、〜を引く'],
-  ['machine','機械'], ['yen','（貨幣単位）円'], ['end','終わり、端、終わる'], ['free','自由な、ひまな、無料の'],
-  ['baby','赤ん坊'], ['newspaper','新聞'], ['under','〜のま下に、〜未満の'], ['door','ドア、戸'],
-  ['forget','（〜を）忘れる'], ['present','贈り物、現在'], ['everything','何でも'], ['face','顔、〜に面する'],
-  ['fall','落ちる、倒れる、秋'], ['cat','ネコ'], ['already','すでに、もう'], ['finally','ついに、最後に'],
-  ['actually','実際に、実は'], ['stand','立つ、〜をがまんする'], ['village','村'], ['graph','グラフ、図表'],
-  ['save','〜を救う、〜をたくわえる'], ['shopping','買い物'], ['red','赤い、赤色'], ['winter','冬'],
-  ['phone','電話（機）'], ['excited','興奮した、わくわくした'], ['once','かつて、以前、一度'], ['six','6つの、6'],
-  ['system','制度、体系'], ['cry','泣く、（〜と）叫ぶ'], ['easily','簡単に'], ['news','ニュース、知らせ'],
-  ['afraid','恐れて、心配して'], ['tired','疲れた、あきた'], ['forest','森'], ['math','数学'],
-  ['nature','自然'], ['catch','〜をつかまえる、（乗り物）に間に合う'], ['baseball','野球'], ['swim','泳ぐ'],
-  ['busy','忙しい'], ['clothes','衣服'], ['sun','（theをつけて）太陽'], ['explain','（〜を）説明する'],
-  ['power','力、能力、権力'], ['rule','規則、〜を支配する'], ['environment','環境'], ['Canada','カナダ'],
-  ['nothing','何も〜ない'], ['star','星、（映画などの）スター'], ['welcome','ようこそ、歓迎される'], ['continue','〜を続ける、続く'],
-  ['late','遅れた、（時間的に）遅い'], ['farmer','農家（の人）、農民'], ['quickly','速く'], ['thirty','30の、30'],
-  ['pay','（代金）を支払う'], ['weekend','週末'], ['air','空気'], ['hot','暑い、熱い'],
-  ['bed','ベッド'], ['dance','（〜を）踊る、ダンス'], ['produce','〜を生産する'], ['area','地域'],
-  ['short','短い、背の低い'], ['art','芸術、美術'], ['arrive','到着する'], ['university','（総合）大学'],
-  ['wow','わあ'], ['fact','事実'], ['angry','怒った'], ['United States','（theをつけて）アメリカ合衆国'],
-  ['black','黒い、黒色'], ['mind','心、精神、（〜を）気にする'], ['ball','ボール、球'], ['basketball','バスケットボール'],
-  ['office','会社、事務所'], ['Mrs.','〜さん、〜夫人'], ['contest','コンテスト'], ['e-mail','E（電子）メール'],
-  ['vegetable','野菜'], ['p.m.','午後'], ['die','死ぬ'], ['far','遠い、遠くに'],
-  ['cake','ケーキ'], ['pass','〜を手渡す、（〜に）合格する'], ['twenty','20の、20'], ['share','〜を共有する、〜を分け合う'],
-  ['rich','金持ちの、豊富な'], ['alone','ひとりきりの、ひとりで'], ['sign','標識、記号、合図'], ['third','3番目の、3番目'],
-  ['pet','ペット'], ['ride','（馬・乗り物など）に乗る'], ['map','地図'], ['though','〜だけれども'],
-  ['lesson','授業、課'], ['meeting','会合、ミーティング'], ['poor','貧しい、かわいそうな'], ['left','左、左の、左へ'],
-  ['maybe','たぶん、〜かもしれない'], ['difference','違い'], ['o\'clock','〜時'], ['son','息子'],
-  ['return','〜を返す、帰る'], ['Africa','アフリカ'], ['hundred','100の、100'], ['yet','（否定文で）まだ、（疑問文で）もう'],
-  ['abroad','外国へ（で）'], ['classroom','教室'], ['road','道路'], ['weather','天気、天候'],
-  ['beach','浜辺、海岸'], ['plane','飛行機'], ['China','中国'], ['exciting','興奮させる、わくわくさせる'],
-  ['cause','原因、〜の原因となる'], ['rice','米、ごはん'], ['half','半分、半分の'], ['tour','観光旅行'],
-  ['evening','夕方、晩'], ['host','（客をもてなす）主人'], ['communication','コミュニケーション、意思疎通'], ['farm','農場、農園'],
-  ['goal','（スポーツの）ゴール、目標'], ['wrong','間違った、悪い'], ['sky','（theをつけて）空'], ['moon','（天体の）月'],
-  ['season','季節、時期'], ['test','試験、テスト、〜を試験する'], ['mistake','間違い、〜を間違える'], ['follow','〜のあとについて行く、〜にしたがう'],
-  ['develop','〜を発展させる、〜を開発する'], ['London','ロンドン'], ['necessary','必要な'], ['fine','元気な、天気がよい'],
-  ['less','（littleの比較級）より少ない'], ['receive','〜を受けとる'], ['myself','私自身（を(に)）'], ['order','注文、命令、〜を注文する'],
-  ['seven','7つの、7'], ['lake','湖'], ['lie','横たわる、うそをつく、うそ'], ['worker','働く人、労働者'],
-  ['concert','コンサート'], ['outside','外側に、〜の外側に、外側'], ['hall','会館、（広い）玄関'], ['spring','春、泉'],
-  ['card','カード、トランプ'], ['gift','贈り物'], ['type','型、種類、タイプ'], ['born','（be bornで）生まれる'],
-  ['suddenly','突然、急に'], ['window','窓'], ['fruit','果物'], ['among','（3つ以上のもの）の間に'],
-  ['age','年齢、時代'], ['shall','〜しましょうか'], ['health','健康'], ['ground','地面、運動場'],
-  ['medicine','（内服）薬、医学'], ['piano','ピアノ'], ['collect','〜を集める'], ['strange','奇妙な、不思議な'],
-  ['technology','科学技術'], ['eight','8つの、8'], ['seem','〜のように思われる'], ['hit','（〜を）打つ、ひと打ち、成功'],
-  ['side','側、側面'], ['New York','ニューヨーク'], ['dictionary','辞書'], ['seat','座席'],
-  ['garden','庭、庭園'], ['dangerous','危険な'], ['laugh','笑う'], ['design','設計、デザイン、（〜を）設計する'],
-  ['dark','暗い、（色が）濃い'], ['gold','金、金（製）の'], ['stone','石'], ['visitor','訪問者'],
-  ['writer','作家、著者'], ['head','頭、長'], ['land','陸地、土地、着陸する'], ['done','（doの過去分詞）'],
-  ['brain','脳'], ['else','そのほかに'], ['top','頂上、トップ'], ['cooking','料理'],
-  ['kite','凧'], ['fight','（〜と）戦う、戦い'], ['elephant','ゾウ'], ['line','線、列、（文章の）行'],
-  ['daughter','娘'], ['local','地元の、（その）地方の'], ['shoe','くつ'], ['field','畑、野原、競技場'],
-  ['piece','1個（枚、片）'], ['Friday','金曜日'], ['grandma','おばあちゃん'], ['coffee','コーヒー'],
-  ['several','いくつかの、数人（個）の'], ['especially','特に'], ['milk','牛乳、ミルク'], ['product','製品、生産物'],
-  ['zoo','動物園'], ['uncle','おじ'], ['century','世紀、100年'], ['floor','床、（建物の）階'],
-  ['Chinese','中国人（語）、中国（人・語）の'], ['check','〜を照合（点検）する'], ['natural','自然の、当然の'], ['island','島'],
-  ['along','〜に沿って、（〜と）一緒に'], ['situation','状況'], ['wall','壁'], ['excuse','〜を許す、〜の言い訳をする'],
-  ['wife','妻'], ['expensive','高価な'], ['forward','前方へ'], ['himself','彼自身（を(に)）'],
-  ['government','政府'], ['carefully','注意深く、念入りに'], ['notice','〜に気づく、通知、掲示'], ['wood','木材、森'],
-  ['tall','背の高い、高い'], ['garbage','生ごみ'], ['possible','可能な、ありうる'], ['T-shirt','Tシャツ'],
-  ['paint','（絵の具で）（〜を）描く、絵の具'], ['report','報告（書）、（〜を）報告する'], ['trouble','困難、問題'], ['pick','〜を選ぶ、（花など）をつむ'],
-  ['breakfast','朝食'], ['wind','風'], ['business','仕事、商売'], ['Olympic','オリンピックの'],
-  ['cool','涼しい、かっこいい、冷静な'], ['center','中心、中心施設、センター'], ['hotel','ホテル'], ['football','フットボール'],
-  ['cut','〜を切る'], ['cup','カップ、茶わん'], ['meaning','意味'], ['real','本物の、本当の、現実の'],
-  ['safe','安全な'], ['research','研究、調査'], ['dish','皿、料理'], ['imagine','（〜を）想像する'],
-  ['inside','内側に、〜の内側に、内側'], ['low','低い、安い、低く'], ['realize','〜に気づく、（希望など）を実現する'], ['Monday','月曜日'],
-  ['borrow','〜を借りる'], ['anyone','（疑問文で）だれか、（否定文で）だれも'], ['create','〜を創造する'], ['careful','注意深い、慎重な'],
-  ['owner','所有者'], ['throw','（〜を）投げる'], ['calendar','カレンダー'], ['gate','門'],
-  ['nurse','看護師'], ['simple','簡単な、単純な'], ['memory','記憶（力）、思い出'], ['tourist','観光客、旅行者'],
-  ['ticket','切符、入場券'], ['yourself','あなた自身（を(に)）'], ['support','〜を支援する、〜を支える'], ['project','計画'],
-  ['Europe','ヨーロッパ、欧州'], ['ice','氷'], ['coin','硬貨、コイン'], ['prepare','（〜の）準備をする'],
-  ['protect','〜を保護する、守る'], ['horse','ウマ'], ['May','5月'], ['control','〜を支配（管理）する'],
-  ['college','（単科）大学'], ['aunt','おば'], ['probably','たぶん'], ['prize','賞'],
-  ['voice','声'], ['nine','9つの、9'], ['waste','〜をむだにする、むだ、浪費'], ['thousand','1,000の、1,000'],
-  ['July','7月'], ['heart','心臓、心、中心'], ['million','100万の、100万'], ['electricity','電気'],
-  ['theater','劇場'], ['snow','雪、雪が降る'], ['amount','量、額、総量'], ['insect','昆虫'],
-  ['slowly','ゆっくりと'], ['improve','〜を改良（改善）する、進歩する'], ['bottle','びん'], ['full','いっぱいの、満腹の'],
-  ['leg','脚'], ['tooth','歯'], ['heat','暑さ、熱、〜を熱する'], ['instead','かわりに'],
-  ['themselves','彼ら自身（を(に)）'], ['drive','車で行く、（車）を運転する'], ['elementary school','小学校'], ['result','結果'],
-  ['marry','（〜と）結婚する'], ['opinion','意見'], ['ready','準備（用意）ができた'], ['healthy','健康な、健康によい'],
-  ['desk','机'], ['goodbye','さようなら、別れのあいさつ'], ['dad','パパ、お父さん'], ['hungry','空腹な'],
-  ['customer','（店の）客、得意先'], ['leader','指導者、リーダー'], ['smartphone','スマートフォン'], ['might','（mayの過去形）〜かもしれない、〜してもよい'],
-  ['egg','卵'], ['friendly','親しみやすい、親しい'], ['kid','子ども（くだけた言い方）'], ['cherry','桜（の木）、サクランボ'],
-  ['cover','〜をおおう、おおい'], ['hamburger','ハンバーガー'], ['behind','〜の後ろに、後ろに'], ['wild','野生の'],
-  ['enter','〜に入る、〜に入学する'], ['kill','〜を殺す'], ['guess','〜を推測する'], ['education','教育'],
-  ['orange','オレンジ、オレンジ色'], ['perfect','完全な'], ['climb','（〜に）登る'], ['reach','〜に着く、〜に届く'],
-  ['race','競走、人種、民族'], ['social','社会の'], ['solve','〜を解決する、〜を解く'], ['across','〜を横切って、〜の向こう側に'],
+  ['energy','力、エネルギー'], ['message','伝言、メッセージ'], ['reason','理由'], ['chance','機会'],
+  ['traditional','伝統的な'], ['system','制度、体系'], ['nature','自然'], ['explain','（〜を）説明する'],
+  ['power','力、能力、権力'], ['rule','規則、〜を支配する'], ['environment','環境'], ['produce','〜を生産する'],
+  ['fact','事実'], ['difference','違い'], ['cause','原因、〜の原因となる'], ['communication','コミュニケーション、意思疎通'],
+  ['develop','〜を発展させる、〜を開発する'], ['necessary','必要な'], ['receive','〜を受けとる'], ['health','健康'],
+  ['technology','科学技術'], ['seem','〜のように思われる'], ['dangerous','危険な'], ['product','製品、生産物'],
+  ['century','世紀、100年'], ['natural','自然の、当然の'], ['situation','状況'], ['expensive','高価な'],
+  ['government','政府'], ['possible','可能な、ありうる'], ['business','仕事、商売'], ['meaning','意味'],
+  ['research','研究、調査'], ['imagine','（〜を）想像する'], ['realize','〜に気づく、（希望など）を実現する'], ['create','〜を創造する'],
+  ['owner','所有者'], ['project','計画'], ['protect','〜を保護する、守る'], ['control','〜を支配（管理）する'],
+  ['amount','量、額、総量'], ['improve','〜を改良（改善）する、進歩する'], ['result','結果'], ['opinion','意見'],
+  ['healthy','健康な、健康によい'], ['customer','（店の）客、得意先'], ['leader','指導者、リーダー'], ['education','教育'],
+  ['perfect','完全な'], ['social','社会の'], ['solve','〜を解決する、〜を解く'], ['point','点、要点、指をさす'],
+  ['spend','（金銭）を使う、（時間）を過ごす'], ['forget','（〜を）忘れる'], ['continue','〜を続ける、続く'], ['share','〜を共有する、〜を分け合う'],
+  ['return','〜を返す、帰る'], ['exciting','興奮させる、わくわくさせる'], ['follow','〜のあとについて行く、〜にしたがう'], ['collect','〜を集める'],
 ];
 const L2_EJ_NAME = '中学英語L2 英→日';
 const L2_JE_NAME = '中学英語L2 日→英';
@@ -996,89 +868,26 @@ function ensureLevel2Decks() {
   const mkJE = () => WORDS_L2.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
   const ej = decks.find(d => d.name === L2_EJ_NAME);
   if (!ej) { const d = createDeck(L2_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length < WORDS_L2.length) { ej.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_L2.length) { ej.cards = mkEJ(); }
   const je = decks.find(d => d.name === L2_JE_NAME);
   if (!je) { const d = createDeck(L2_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length < WORDS_L2.length) { je.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_L2.length) { je.cards = mkJE(); }
   save();
 }
 
 const WORDS_L3 = [
-  ['clear','はっきりした、〜をかたづける'], ['August','8月'], ['percent','パーセント'], ['temple','寺院'],
-  ['cap','（ふちのない）帽子'], ['past','過去、過去の'], ['temperature','温度、気温'], ['advice','忠告、アドバイス'],
-  ['nervous','神経質な、緊張して'], ['skill','技能、技術'], ['common','共通の、ふつうの'], ['ceremony','式典'],
-  ['delicious','おいしい'], ['subject','科目、主題'], ['exchange','〜を交換する'], ['sugar','砂糖'],
-  ['adult','大人'], ['pen','ペン'], ['notebook','ノート、メモ帳'], ['wonder','〜かしらと思う、不思議に思う'],
-  ['communicate','コミュニケーションをとる'], ['foot','足、フィート'], ['smell','（〜の）においがする、におい'], ['Dr.','〜先生、〜博士'],
-  ['international','国際的な'], ['a.m.','午前'], ['against','〜に反対して'], ['reduce','〜を減らす'],
-  ['stadium','競技場'], ['discover','〜を発見する'], ['miss','〜に乗り遅れる、（機会）をのがす'], ['size','大きさ'],
-  ['effect','効果、結果'], ['cow','（雌）牛'], ['April','4月'], ['set','〜を定める、置く、一組'],
-  ['stage','舞台、ステージ、段階'], ['service','サービス、奉仕'], ['satellite','（人工）衛星'], ['hurt','〜を傷つける、痛む'],
-  ['view','眺め、考え（方）'], ['touch','〜に触る、触れる、接触'], ['introduce','〜を紹介する'], ['ring','（ベルなど）を鳴らす、指輪'],
-  ['police','警察'], ['national','国家の、国民の'], ['salt','塩'], ['invite','〜を招く、招待する'],
-  ['plastic','プラスチック製の、ビニール製の'], ['lucky','運のよい、幸運な'], ['dry','乾いた、〜を乾かす'], ['jump','（ぴょんと）とぶ'],
-  ['cell','細胞'], ['March','3月'], ['ski','スキーをする、スキー（板）'], ['sentence','文'],
-  ['print','〜を印刷する、印刷'], ['ocean','（theをつけて）大洋'], ['dollar','（貨幣単位）ドル'], ['increase','増える、〜を増やす'],
-  ['exercise','運動、練習'], ['captain','（チームの）主将、船長'], ['volleyball','バレーボール'], ['meat','（食用）肉'],
-  ['price','価格'], ['distance','距離'], ['bridge','橋'], ['England','イングランド'],
-  ['lead','〜を導く、案内する'], ['moment','瞬間、ちょっとの間'], ['hair','髪の毛、毛'], ['banana','バナナ'],
-  ['deep','深い、（色が）濃い'], ['king','王、国王'], ['war','戦争'], ['meal','食事'],
-  ['husband','夫'], ['June','6月'], ['taste','味、（〜の）味がする'], ['solar','太陽の'],
-  ['wash','（〜を）洗う'], ['photo','写真'], ['Wednesday','水曜日'], ['relax','くつろぐ'],
-  ['guide','〜を案内する、ガイド'], ['camp','キャンプする、キャンプ'], ['fire','火、火事'], ['serious','まじめな、深刻な'],
-  ['India','インド'], ['community','地域社会、共同体'], ['fifteen','15の、15'], ['period','期間、時代'],
-  ['rock','岩、岩石'], ['France','フランス'], ['blood','血、血液'], ['Christmas','クリスマス'],
-  ['kilometer','キロメートル'], ['allow','〜を許す'], ['beginning','初め、始まり'], ['fresh','新鮮な'],
-  ['marathon','マラソン'], ['Tuesday','火曜日'], ['symbol','象徴'], ['apple','リンゴ'],
-  ['global','地球上の、国際的な'], ['fishing','釣り'], ['October','10月'], ['yellow','黄色の、黄色'],
-  ['researcher','調査員、研究者'], ['main','主な、主要な'], ['public','公の、公共の'], ['article','記事'],
-  ['pull','（〜を）引く、引っぱる'], ['shape','形'], ['straight','まっすぐに、まっすぐな'], ['ship','（大型の）船'],
-  ['fifty','50の、50'], ['September','9月'], ['damage','損害、被害'], ['planet','惑星'],
-  ['professional','専門職の、プロの'], ['elderly','年配の'], ['cookie','クッキー'], ['sweet','甘い'],
-  ['rose','バラ'], ['chair','いす'], ['disappear','消える'], ['mine','（Iの所有代名詞）私のもの'],
-  ['cute','かわいい'], ['factory','工場'], ['proud','誇りに思う'], ['bicycle','自転車'],
-  ['Thursday','木曜日'], ['dear','親愛なる'], ['cost','（費用）がかかる、値段、費用'], ['level','水準'],
-  ['juice','ジュース、（果物・野菜の）汁'], ['cheap','安い'], ['coat','上着、コート'], ['sunny','快晴の'],
-  ['arm','腕'], ['video','ビデオ、映像の'], ['flight','飛行便、飛ぶこと'], ['corner','角、すみ'],
-  ['appear','現れる'], ['add','〜を加える'], ['note','メモ'], ['clock','時計'],
-  ['conversation','会話'], ['bread','パン'], ['encourage','〜をはげます、〜をすすめる'], ['law','法律'],
-  ['heavy','重い、はげしい'], ['tool','道具'], ['teammate','チームメイト'], ['rest','休憩、休養、休む'],
-  ['ancient','古代の'], ['promise','約束、（〜を）約束する'], ['castle','城'], ['treasure','宝物、財宝'],
-  ['astronaut','宇宙飛行士'], ['step','一歩、歩み、（階段の）段'], ['code','符号'], ['toward','〜のほうへ、〜に向かって'],
-  ['drop','落ちる、〜を落とす'], ['leaf','（木・草の）葉'], ['clerk','店員、職員'], ['guitar','ギター'],
-  ['knowledge','知識'], ['radio','ラジオ'], ['perhaps','たぶん'], ['living','生きている'],
-  ['quiet','静かな、おだやかな'], ['express','〜を表現する、急行の'], ['dinosaur','恐竜'], ['airport','空港'],
-  ['case','場合、箱'], ['whole','全体の、全体'], ['bookstore','書店'], ['impress','〜を感動させる'],
-  ['toy','おもちゃ'], ['although','〜だけれども'], ['experiment','実験'], ['effort','努力'],
-  ['movement','動き、動作'], ['choice','選択、選んだもの'], ['supermarket','スーパーマーケット'], ['mouth','口'],
-  ['nobody','だれも〜ない'], ['society','社会'], ['meter','（長さの単位）メートル'], ['either','（〜か…）のどちらか、〜もまた'],
-  ['boat','ボート、船'], ['staff','職員、スタッフ'], ['sense','感覚、意味'], ['recycle','〜を再生利用する'],
-  ['soybean','大豆'], ['shout','（〜を）大声で叫ぶ、叫び声'], ['various','いろいろな'], ['interest','興味、関心'],
-  ['drum','たいこ、ドラム'], ['soldier','軍人、兵士'], ['slow','（速度が）遅い'], ['influence','影響、〜に影響を及ぼす'],
-  ['website','ウェブサイト'], ['tomato','トマト'], ['traffic','交通（量）'], ['steal','（こっそり）〜を盗む'],
-  ['luck','運'], ['deer','シカ'], ['CD','コンパクトディスク'], ['god','神'],
-  ['eleven','11の、11'], ['aurora','オーロラ'], ['fill','〜を満たす'], ['band','楽団、バンド'],
-  ['painting','（絵の具で描いた）絵'], ['bank','銀行、土手'], ['stick','棒切れ、つえ'], ['hat','（ふちのある）帽子'],
-  ['quite','かなり、すっかり'], ['death','死'], ['presentation','発表'], ['page','（本の）ページ'],
-  ['market','市場'], ['active','活動的な、活発な'], ['date','日付、デート'], ['glass','ガラス、コップ'],
-  ['February','2月'], ['New Zealand','ニュージーランド'], ['middle','まん中、まん中の'], ['average','平均の、平均'],
-  ['ability','能力'], ['similar','似ている、同様の'], ['action','行動'], ['smart','りこうな'],
-  ['above','〜の上に（へ）、上方に'], ['matter','問題、事がら'], ['twelve','12の、12'], ['umbrella','かさ'],
-  ['lady','婦人'], ['friendship','友情'], ['desert','砂漠'], ['disease','病気'],
-  ['bear','クマ、〜を産む'], ['complete','〜を完成する、完全な'], ['doll','人形'], ['tournament','トーナメント'],
-  ['hurry','急ぐ、急ぎ'], ['herself','彼女自身（を(に)）'], ['accident','事故'], ['artist','芸術家'],
-  ['wish','願い、〜を望む、願う'], ['gym','体育館'], ['schedule','予定（表）、スケジュール'], ['coach','監督、コーチ'],
-  ['gas','気体、ガソリン'], ['data','データ、資料'], ['north','北、北部'], ['chorus','合唱（団）'],
-  ['puppy','子イヌ'], ['terrible','恐ろしい、ひどい'], ['fear','恐れ、〜を恐れる'], ['raise','〜を上げる、〜を育てる'],
-  ['record','記録、〜を記録する'], ['wake','目がさめる、〜を起こす'], ['position','位置、地位'], ['clearly','はっきりと、明らかに'],
-  ['twice','2度（回）'], ['December','12月'], ['list','一覧表、リスト'], ['pollution','汚染'],
-  ['site','用地、（インターネットの）サイト'], ['usual','いつもの、ふつうの'], ['yours','（youの所有代名詞）あなた（たち）のもの'], ['camera','カメラ'],
-  ['least','最も少ない、最も少なく'], ['dead','死んでいる'], ['bath','入浴'], ['shy','内気な、恥ずかしがりの'],
-  ['January','1月'], ['repair','〜を修理する、修理'], ['roll','〜をころがす、ころがる'], ['British','イギリス（人）の'],
-  ['serve','（食事）を出す、〜に仕える'], ['someday','いつか、そのうちに'], ['everyday','毎日の'], ['respect','〜を尊敬する、尊敬'],
-  ['south','南、南部'], ['forty','40の、40'], ['textbook','教科書'], ['comic','マンガ（本）'],
-  ['act','行動する、（役）を演じる'], ['fan','（スポーツなどの）ファン、うちわ'], ['tonight','今夜（は）'], ['holiday','休日、祭日'],
-  ['chocolate','チョコレート'], ['post office','郵便局'], ['form','形、形式、〜を形づくる'], ['teenager','ティーンエージャー'],
+  ['advice','忠告、アドバイス'], ['skill','技能、技術'], ['common','共通の、ふつうの'], ['delicious','おいしい'],
+  ['subject','科目、主題'], ['international','国際的な'], ['reduce','〜を減らす'], ['discover','〜を発見する'],
+  ['effect','効果、結果'], ['service','サービス、奉仕'], ['introduce','〜を紹介する'], ['national','国家の、国民の'],
+  ['increase','増える、〜を増やす'], ['distance','距離'], ['serious','まじめな、深刻な'], ['community','地域社会、共同体'],
+  ['period','期間、時代'], ['allow','〜を許す'], ['global','地球上の、国際的な'], ['main','主な、主要な'],
+  ['public','公の、公共の'], ['professional','専門職の、プロの'], ['level','水準'], ['appear','現れる'],
+  ['encourage','〜をはげます、〜をすすめる'], ['law','法律'], ['ancient','古代の'], ['knowledge','知識'],
+  ['express','〜を表現する、急行の'], ['effort','努力'], ['choice','選択、選んだもの'], ['society','社会'],
+  ['various','いろいろな'], ['influence','影響、〜に影響を及ぼす'], ['average','平均の、平均'], ['ability','能力'],
+  ['similar','似ている、同様の'], ['action','行動'], ['complete','〜を完成する、完全な'], ['respect','〜を尊敬する、尊敬'],
+  ['moment','瞬間、ちょっとの間'], ['researcher','調査員、研究者'], ['staff','職員、スタッフ'], ['active','活動的な、活発な'],
+  ['matter','問題、事がら'], ['artist','芸術家'], ['terrible','恐ろしい、ひどい'], ['raise','〜を上げる、〜を育てる'],
 ];
 const L3_EJ_NAME = '中学英語L3 英→日';
 const L3_JE_NAME = '中学英語L3 日→英';
@@ -1087,114 +896,29 @@ function ensureLevel3Decks() {
   const mkJE = () => WORDS_L3.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
   const ej = decks.find(d => d.name === L3_EJ_NAME);
   if (!ej) { const d = createDeck(L3_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length < WORDS_L3.length) { ej.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_L3.length) { ej.cards = mkEJ(); }
   const je = decks.find(d => d.name === L3_JE_NAME);
   if (!je) { const d = createDeck(L3_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length < WORDS_L3.length) { je.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_L3.length) { je.cards = mkJE(); }
   save();
 }
 
 const WORDS_L4 = [
-  ['bee','ハチ'], ['turtle','（主に海にすむ）カメ'], ['push','（〜を）押す'], ['shock','〜に衝撃を与える、衝撃'],
-  ['bright','輝く、明るい'], ['connect','〜をつなぐ'], ['invent','〜を発明する'], ['noise','物音、騒音'],
-  ['training','訓練'], ['object','物体、目的'], ['chart','図表'], ['funny','おもしろい、奇妙な'],
-  ['billion','10億の、10億'], ['modern','現代の、現代的な'], ['speaker','演説者、話し手'], ['weak','弱い'],
-  ['fourth','4番目の、4番目'], ['Asia','アジア'], ['grade','学年、成績'], ['certain','確信して、確かな'],
-  ['patient','忍耐強い、患者'], ['ink','インク'], ['gather','〜を集める、集まる'], ['hole','穴'],
-  ['truth','真実、事実'], ['wrap','〜を包む'], ['relationship','関係'], ['rainy','雨の、雨降りの'],
-  ['firework','花火'], ['percentage','割合、パーセンテージ'], ['amazing','びっくりするような'], ['ear','耳'],
-  ['impossible','不可能な'], ['round','丸い、まわりに'], ['wave','波、（手など）を振る'], ['peace','平和'],
-  ['shirt','シャツ'], ['accept','〜を受け入れる'], ['condition','状態、状況'], ['dress','ドレス、服装、〜に服を着せる'],
-  ['expect','〜を予期（期待）する'], ['following','次の'], ['November','11月'], ['decision','決定、決心'],
-  ['runner','走る人、ランナー'], ['ant','アリ'], ['purpose','目的、意図'], ['fat','太った'],
-  ['figure','図表、姿、数字'], ['cancer','がん'], ['preserve','〜を保護する'], ['pocket','ポケット'],
-  ['engineer','技師、エンジニア'], ['importance','重要性'], ['interview','インタビュー、面接、〜にインタビューする'], ['intelligence','知能'],
-  ['lamp','明かり'], ['task','仕事、課題'], ['pencil','鉛筆'], ['blind','目の見えない'],
-  ['spread','〜を広げる、広がる'], ['generation','世代'], ['pot','つぼ、深なべ'], ['pump','ポンプ、〜をポンプでくみ出す'],
-  ['cheer','（〜を）応援する、元気づける'], ['metal','金属'], ['driver','運転手'], ['hide','隠れる、〜を隠す'],
-  ['department store','デパート、百貨店'], ['telephone','電話（機）'], ['uniform','制服、ユニフォーム'], ['lion','ライオン'],
-  ['stamp','切手、印、スタンプ'], ['convenient','便利な'], ['pretty','きれいな、かわいらしい、かなり'], ['daily','日常の、毎日の'],
-  ['depend','頼る'], ['magazine','雑誌'], ['state','（米国などの）州、国家'], ['thought','思考、考え'],
-  ['church','教会'], ['whose','だれの（もの）'], ['helpful','役に立つ、助けになる'], ['style','様式、型'],
-  ['athlete','運動選手'], ['performance','上演、演奏'], ['secret','秘密の、秘密'], ['silver','銀、銀（色）の'],
-  ['Brazil','ブラジル'], ['mobile phone','携帯電話'], ['selfish','利己的な'], ['lily','ユリ'],
-  ['taxi','タクシー'], ['bowl','（料理用の）ボウル、どんぶり、わん'], ['French','フランス人（語）、フランス（人・語）の'], ['skin','皮ふ、皮'],
-  ['wing','翼'], ['invention','発明'], ['cross','（道・川など）を横切る、十字（架）'], ['whether','〜かどうか'],
-  ['Mars','火星'], ['stress','ストレス'], ['east','（theをつけて）東、東部、東の、東へ'], ['boring','たいくつな'],
-  ['everybody','だれでも、みんな'], ['role','役割、役'], ['pizza','ピザ'], ['homestay','（留学生の）ホームステイ'],
-  ['kitchen','台所'], ['recently','最近'], ['wedding','結婚式'], ['safety','安全'],
-  ['sightseeing','観光'], ['sandwich','サンドイッチ'], ['tear','涙'], ['nose','鼻'],
-  ['key','かぎ、手がかり、秘けつ'], ['bell','鐘（の音）、ベル（の音）'], ['custom','（社会の）慣習、（個人の）習慣'], ['Hawaii','ハワイ'],
-  ['offer','〜を提供する、申し出る、申し出'], ['rise','（太陽・月が）昇る、上がる'], ['atmosphere','大気、ふんいき'], ['chemical','化学の'],
-  ['cloud','雲'], ['western','西の、西洋の'], ['attention','注意、注目'], ['earthquake','地震'],
-  ['graduate','卒業する'], ['process','過程、手順'], ['sleepy','眠い、眠そうな'], ['survive','（〜を）生き残る'],
-  ['shoot','（〜を）撃つ'], ['speed','速度'], ['bone','骨'], ['Britain','イギリス'],
-  ['seed','種'], ['singer','歌手'], ['Sydney','シドニー'], ['expression','表現、表情'],
-  ['quietly','静かに'], ['search','（〜を）さがす、調べる'], ['shake','〜を振る、ゆれる'], ['California','カリフォルニア州'],
-  ['character','登場人物、文字、性格'], ['destroy','〜を破壊する'], ['material','原料、材料'], ['means','方法、手段'],
-  ['rate','率、割合'], ['mark','〜に印をつける、印、点数'], ['release','〜を解放する'], ['shrine','神社、神殿'],
-  ['tradition','伝統'], ['burn','燃える、〜を燃やす'], ['magic','魔法、手品、魔法の'], ['queen','女王'],
-  ['sheet','（薄いものの）1枚、シーツ'], ['hunter','猟師'], ['dirty','よごれた'], ['happiness','幸福'],
-  ['joy','喜び'], ['guest','（招かれた）客'], ['officer','役人、警官'], ['bean','豆'],
-  ['enemy','敵'], ['user','使用者'], ['import','〜を輸入する'], ['sheep','ヒツジ'],
-  ['council','協議会、議会'], ['per','〜につき'], ['soup','スープ'], ['surface','表面'],
-  ['west','（theをつけて）西、西部、西の、西へ'], ['correct','正確な'], ['Korea','朝鮮、韓国'], ['normal','標準の、正常な'],
-  ['toilet','トイレ'], ['artificial','人工の'], ['expert','専門家'], ['vending machine','自動販売機'],
-  ['entrance','入口'], ['actor','俳優、男優'], ['earn','（お金）を得る、かせぐ'], ['wide','（幅が）広い'],
-  ['successful','成功した'], ['thin','薄い、やせた'], ['topic','話題'], ['unique','独特の、唯一の'],
-  ['convenience store','コンビニエンスストア'], ['reply','答える、答え'], ['koala','コアラ'], ['poster','ポスター'],
-  ['penguin','ペンギン'], ['railway','鉄道'], ['ballet','バレエ'], ['anyway','とにかく'],
-  ['neighbor','隣人、近所の人'], ['pain','痛み'], ['understanding','理解'], ['count','（〜を）数える'],
-  ['feed','〜に食べ物（えさ）を与える'], ['musician','音楽家'], ['breath','呼吸、息'], ['circle','円'],
-  ['president','大統領、社長'], ['cloudy','くもりの'], ['popcorn','ポップコーン'], ['Germany','ドイツ'],
-  ['potato','ジャガイモ'], ['addition','加えること'], ['address','住所、あて名'], ['hate','〜をにくむ'],
-  ['pressure','重圧、プレッシャー'], ['scare','〜を怖がらせる'], ['challenge','挑戦'], ['soft','やわらかい'],
-  ['survey','調査'], ['huge','巨大な、ばく大な'], ['lifestyle','生活様式'], ['ordinary','通常の、ふつうの、平凡な'],
-  ['perform','〜を上演（演奏）する'], ['wallet','さいふ'], ['beef','牛肉'], ['fossil','化石'],
-  ['wise','賢い'], ['blossom','（特に果樹の）花'], ['rugby','ラグビー'], ['rope','なわ'],
-  ['heritage','（文化的な）遺産'], ['leaflet','ちらし、（薄い）小冊子'], ['clever','りこうな、賢い'], ['grass','草、芝生'],
-  ['seventy','70の、70'], ['shine','輝く、光る'], ['surprise','〜を驚かせる、驚き'], ['device','装置、しかけ'],
-  ['fry','〜を油で揚げる'], ['anger','怒り'], ['completely','完全に、まったく'], ['passenger','乗客'],
-  ['competition','競争、競技会'], ['mouse','ハツカネズミ'], ['loud','（音・声が）大きい、大声で'], ['attack','〜を攻撃する、攻撃'],
-  ['airplane','飛行機'], ['exactly','正確に、ちょうど'], ['theory','理論、学説'], ['bottom','底、最下部'],
-  ['suffer','（苦痛など）を受ける、苦しむ'], ['bacteria','バクテリア、細菌'], ['professor','教授'], ['tunnel','トンネル'],
-  ['swallow','ツバメ'], ['empty','からの'], ['fix','〜を修理する'], ['worse','より悪い'],
-  ['affect','〜に影響する'], ['comfortable','気持ちのよい、快適な'], ['phrase','句、熟語'], ['discovery','発見、発見したもの'],
-  ['advertisement','広告'], ['focus','焦点、集中、重視、集中する'], ['master','〜を習得する、主人'], ['elevator','エレベーター'],
-  ['pound','（重量・貨幣の単位）ポンド'], ['pop','大衆向けの'], ['trick','手品、いたずら'], ['plain','わかりやすい、明らかな、質素な'],
-  ['shell','貝がら'], ['tower','塔'], ['oil','石油、油'], ['asleep','眠って'],
-  ['silent','沈黙の、静かな'], ['calm','おだやかな'], ['behavior','ふるまい'], ['source','みなもと、出所'],
-  ['provide','〜を与える、供給する'], ['passage','通路、（文章の）一節'], ['fisherman','漁師、釣り人'], ['necklace','ネックレス'],
-  ['powder','粉'], ['Berlin','ベルリン'], ['somewhere','どこかに（へ）'], ['surprising','驚くべき'],
-  ['crop','農作物'], ['powerful','強力な'], ['regular','規則正しい、いつもの'], ['African','アフリカ人、アフリカ（人）の'],
-  ['hill','丘'], ['anymore','これ以上'], ['balance','つりあい'], ['success','成功'],
-  ['snake','ヘビ'], ['Antarctica','南極大陸'], ['skate','スケートをする'], ['vote','（〜に）投票する、投票'],
-  ['bride','花嫁'], ['wheelchair','車いす'], ['cousin','いとこ'], ['disappointed','がっかりして'],
-  ['pair','一対、一組'], ['pink','ピンク色の、ピンク色'], ['square','正方形、四角、正方形の'], ['development','発展、開発'],
-  ['gesture','身ぶり、ジェスチャー'], ['partner','パートナー'], ['personal','個人の、個人的な'], ['Singapore','シンガポール'],
-  ['pond','池'], ['sail','帆、帆船、航海する'], ['zone','地帯'], ['logic','論理（学）'],
-  ['injure','〜にけがをさせる'], ['sixty','60の、60'], ['below','〜の下に（へ）、下方に'], ['finger','（手の）指'],
-  ['noon','正午'], ['electric','電気の'], ['everywhere','どこでも、いたるところで（に）'], ['relate','〜を関係づける'],
-  ['wet','ぬれた'], ['disaster','大災害、惨事'], ['original','もとの、独創的な、原作'], ['panda','パンダ'],
-  ['rabbit','ウサギ'], ['racket','ラケット'], ['score','得点、スコア、得点する'], ['apply','申しこむ、応募する'],
-  ['manner','行儀、態度'], ['pool','（水泳用の）プール、水たまり'], ['cage','鳥かご、（動物の）おり'], ['creative','創造的な、独創的な'],
-  ['sale','販売、安売り、セール'], ['trash','くず、ごみ'], ['therapy','治療、セラピー'], ['author','著者、作家'],
-  ['happily','幸福に'], ['direction','方向、道順、指示'], ['sand','砂'], ['total','全体の、合計'],
-  ['brown','茶色の、茶色'], ['courage','勇気'], ['drama','演劇'], ['housework','家事'],
-  ['mix','〜をまぜる、まざる'], ['trust','〜を信用する'], ['bite','ひと口、かむこと、（〜を）かむ'], ['economy','経済'],
-  ['medical','医学の、医療の'], ['polite','ていねいな、礼儀正しい'], ['curry','カレー料理'], ['female','女性、メス、女性（メス）の'],
-  ['interviewer','インタビューする人'], ['fuel','燃料'], ['cave','ほら穴'], ['gun','銃'],
-  ['shark','サメ'], ['originally','本来、もとは'], ['forever','永久に'], ['track','（陸上競技の）トラック、線路、小道'],
-  ['mile','（長さの単位）マイル'], ['thick','厚い、太い'], ['homeroom','ホームルーム'], ['United Kingdom','（theをつけて）イギリス'],
-  ['value','価値'], ['charity','慈善（行為）'], ['rescue','〜を救助する、救助'], ['stranger','見知らぬ人、初めての人'],
-  ['gray','灰色の、灰色'], ['quarter','4分の1、15分、25セント'], ['scissors','はさみ'], ['crow','カラス'],
-  ['comma','コンマ'], ['trade','貿易、取引、取引する'], ['weight','重さ、体重'], ['celebrate','〜を祝う'],
-  ['deliver','〜を配達する'], ['Paris','パリ'], ['suggest','〜を提案する'], ['dig','（地面・穴）を掘る'],
-  ['shift','（位置など）を変える、変わる、交代（制）'], ['storm','嵐'], ['prefecture','県'], ['tail','（動物の）尾'],
-  ['couple','一対、夫婦'], ['cicada','セミ'], ['fifth','5番目の、5番目'], ['spot','場所、地点、斑点、しみ'],
-  ['base','基礎、〜を基礎とする'], ['habit','（個人の）習慣、くせ'], ['central','中央の、中心の'], ['comment','論評、解説、コメント'],
-  ['intelligent','知能の高い、頭のよい'], ['knife','ナイフ'], ['Miss','〜さん、〜先生'], ['remain','〜のままである'],
-  ['Roman','ローマ人、ローマ（人）の'], ['chain','鎖、チェーン'], ['dolphin','イルカ'], ['private','個人的な、私立の'],
+  ['connect','〜をつなぐ'], ['invent','〜を発明する'], ['modern','現代の、現代的な'], ['certain','確信して、確かな'],
+  ['truth','真実、事実'], ['relationship','関係'], ['percentage','割合、パーセンテージ'], ['impossible','不可能な'],
+  ['peace','平和'], ['accept','〜を受け入れる'], ['condition','状態、状況'], ['expect','〜を予期（期待）する'],
+  ['following','次の'], ['purpose','目的、意図'], ['preserve','〜を保護する'], ['engineer','技師、エンジニア'],
+  ['importance','重要性'], ['spread','〜を広げる、広がる'], ['generation','世代'], ['convenient','便利な'],
+  ['depend','頼る'], ['helpful','役に立つ、助けになる'], ['stress','ストレス'], ['safety','安全'],
+  ['custom','（社会の）慣習、（個人の）習慣'], ['offer','〜を提供する、申し出る、申し出'], ['process','過程、手順'], ['survive','（〜を）生き残る'],
+  ['expression','表現、表情'], ['destroy','〜を破壊する'], ['material','原料、材料'], ['rate','率、割合'],
+  ['tradition','伝統'], ['correct','正確な'], ['normal','標準の、正常な'], ['expert','専門家'],
+  ['successful','成功した'], ['topic','話題'], ['unique','独特の、唯一の'], ['president','大統領、社長'],
+  ['pressure','重圧、プレッシャー'], ['huge','巨大な、ばく大な'], ['ordinary','通常の、ふつうの、平凡な'], ['perform','〜を上演（演奏）する'],
+  ['wise','賢い'], ['clever','りこうな、賢い'], ['professor','教授'], ['affect','〜に影響する'],
+  ['comfortable','気持ちのよい、快適な'], ['behavior','ふるまい'], ['source','みなもと、出所'], ['provide','〜を与える、供給する'],
+  ['powerful','強力な'], ['regular','規則正しい、いつもの'], ['balance','つりあい'], ['success','成功'],
+  ['development','発展、開発'], ['original','もとの、独創的な、原作'], ['apply','申しこむ、応募する'], ['creative','創造的な、独創的な'],
 ];
 const L4_EJ_NAME = '中学英語L4 英→日';
 const L4_JE_NAME = '中学英語L4 日→英';
@@ -1203,89 +927,22 @@ function ensureLevel4Decks() {
   const mkJE = () => WORDS_L4.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
   const ej = decks.find(d => d.name === L4_EJ_NAME);
   if (!ej) { const d = createDeck(L4_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length < WORDS_L4.length) { ej.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_L4.length) { ej.cards = mkEJ(); }
   const je = decks.find(d => d.name === L4_JE_NAME);
   if (!je) { const d = createDeck(L4_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length < WORDS_L4.length) { je.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_L4.length) { je.cards = mkJE(); }
   save();
 }
 
 const WORDS_L5 = [
-  ['album','アルバム'], ['dancer','ダンサー'], ['ghost','幽霊'], ['merchant','商人'],
-  ['Venus','金星'], ['kitten','子ネコ'], ['rain forest','熱帯雨林'], ['yeah','（返事として）はい'],
-  ['Spanish','スペイン人（語）、スペイン（人・語）の'], ['crowded','混みあった'], ['beat','〜を打ち負かす、（〜を）打つ'], ['belong','所属する'],
-  ['certainly','確かに、きっと'], ['bit','少し、少量'], ['compare','〜を比較する'], ['board','板、黒板'],
-  ['Italy','イタリア'], ['nest','（鳥などの）巣'], ['positive','積極的な、肯定的な'], ['postcard','（絵）はがき'],
-  ['spirit','精神'], ['separate','〜を分ける、分かれる'], ['succeed','成功する'], ['cure','（病気など）を治す'],
-  ['image','印象、（画）像'], ['novel','（長編の）小説'], ['sight','視力、光景'], ['danger','危険'],
-  ['loss','損失'], ['slave','奴隷'], ['theme','主題、テーマ'], ['risk','危険性'],
-  ['camel','ラクダ'], ['anywhere','どこかに（へ）、どこにも、どこでも'], ['attract','〜をひきつける'], ['brush','ブラシ、（ブラシで）〜をみがく'],
-  ['repeat','（〜を）くり返して言う、くり返す'], ['engine','エンジン'], ['cloth','布'], ['sunlight','日光'],
-  ['mystery','秘密、なぞ、推理小説'], ['nut','木の実'], ['bulb','電球'], ['principal','主な、校長'],
-  ['calculate','〜を計算する'], ['colony','植民地、居留地'], ['menu','メニュー'], ['lift','〜を持ち上げる'],
-  ['Asian','アジア人、アジア（人）の'], ['Australian','オーストラリア人、オーストラリア（人）の'], ['cultural','文化の、文化的な'], ['directly','直接に'],
-  ['neck','首'], ['block','（市街の）区画、ブロック、〜をふさぐ'], ['golden','金色の'], ['hometown','生まれ故郷'],
-  ['beauty','美しさ'], ['collection','収集（物）'], ['hunt','〜を狩る、狩り'], ['limit','限度、〜を制限する'],
-  ['nearly','ほとんど、あやうく'], ['pack','包み、〜をつめこむ'], ['agriculture','農業'], ['diary','日記'],
-  ['impact','衝撃、影響'], ['media','（theをつけて）マスメディア'], ['painter','画家'], ['panel','パネル'],
-  ['web','（the Webで）ウェブ、クモの巣'], ['assistance','援助'], ['onto','〜の上に'], ['therefore','したがって'],
-  ['slide','すべる'], ['text','本文'], ['film','（写真の）フィルム、映画'], ['Finland','フィンランド'],
-  ['major','主要な'], ['cafeteria','カフェテリア'], ['satisfy','〜を満足させる'], ['climate','気候'],
-  ['kick','〜をける'], ['shoulder','肩'], ['towel','タオル'], ['alive','生きている'],
-  ['basic','基礎の、基本的な'], ['extra','余分の、追加の'], ['foreigner','外国人'], ['avoid','〜を避ける'],
-  ['European','ヨーロッパ人、ヨーロッパ（人）の'], ['unhappy','不幸な、悲しい'], ['breathe','呼吸する'], ['physical','身体の、物質の'],
-  ['sixteen','16の、16'], ['traveler','旅行者'], ['violin','バイオリン'], ['yard','（中）庭、ヤード'],
-  ['connection','つながり'], ['exam','試験、テスト'], ['fortune','運、運命、財産、富'], ['monkey','サル'],
-  ['male','男性、オス、男性（オス）の'], ['online','オンラインの、オンラインで'], ['safely','安全に'], ['campaign','宣伝活動、キャンペーン'],
-  ['region','地域'], ['exhibition','展覧会、展示（品）'], ['force','力'], ['sticky','ねばねばした、べとべとする'],
-  ['grandparent','祖父、祖母'], ['cream','クリーム'], ['knock','ノックする'], ['wooden','木（製）の'],
-  ['plate','（浅い）皿'], ['thirteen','13の、13'], ['winner','勝利者、受賞者'], ['explanation','説明'],
-  ['hero','ヒーロー、英雄'], ['environmental','環境の'], ['escape','逃げる、脱出する'], ['tiny','とても小さい'],
-  ['benefit','利益'], ['fail','失敗する、（試験など）に落ちる'], ['pilot','パイロット'], ['rather','かなり、（〜より）むしろ'],
-  ['route','道、道筋'], ['sensor','センサー'], ['bakery','パン屋'], ['operation','（機械の）操作'],
-  ['craft','（特別な技術を要する）工芸'], ['dust','ほこり'], ['pie','パイ'], ['term','期間、学期'],
-  ['wine','ワイン'], ['volcano','火山'], ['bubble','あわ'], ['printer','プリンター'],
-  ['beside','〜のそばに'], ['birth','誕生'], ['degree','（温度・角度などの）度、程度'], ['lay','（卵）を産む'],
-  ['lend','（〜に）…を貸す'], ['official','公の、公式の'], ['approach','（〜に）近づく、接近'], ['float','浮かぶ、浮く'],
-  ['include','〜をふくむ'], ['photograph','写真'], ['branch','枝'], ['discussion','議論'],
-  ['waiter','ウエーター'], ['handmade','手作りの'], ['shelter','避難所'], ['signal','信号、合図'],
-  ['trumpet','トランペット'], ['drill','きり、ドリル、訓練'], ['hurricane','ハリケーン'], ['brave','勇敢な'],
-  ['deeply','深く'], ['fourteen','14の、14'], ['remove','〜を取り除く'], ['blow','（風が）吹く'],
-  ['apartment','アパート'], ['audience','聴衆、観客'], ['corn','トウモロコシ'], ['ourselves','私たち自身（を(に)）'],
-  ['recent','最近の'], ['worst','最も悪い'], ['Dutch','オランダ人（語）、オランダ（人・語）の'], ['grain','穀物、粒'],
-  ['lemon','レモン'], ['refuse','〜を拒む'], ['arrange','〜をきちんと整える、〜を取り決める'], ['cafe','カフェ、喫茶店'],
-  ['fence','さく、フェンス'], ['greenhouse','温室'], ['organization','組織'], ['inch','（長さの単位）インチ'],
-  ['none','だれも〜ない、何も〜ない'], ['purse','さいふ、小銭入れ'], ['fee','料金、報酬'], ['horn','（シカなどの）角、（楽器の）ホルン'],
-  ['exploration','探検'], ['refugee','避難民'], ['colorful','色彩に富んだ'], ['bar','棒、酒場'],
-  ['disagree','意見が合わない'], ['Italian','イタリア人（語）、イタリア（人・語）の'], ['roof','屋根'], ['German','ドイツ人（語）、ドイツ（人・語）の'],
-  ['title','題名'], ['chef','料理長'], ['equal','等しい、平等の'], ['honest','正直な'],
-  ['impression','印象、感動'], ['population','人口'], ['reporter','記者'], ['salad','サラダ'],
-  ['single','たった1つ（1人）の、1人用の'], ['bend','〜を曲げる、曲がる'], ['emergency','非常事態'], ['likely','ありそうな'],
-  ['reuse','〜を再利用する'], ['shelf','棚'], ['string','ひも、糸'], ['tube','管'],
-  ['award','（人）に（賞など）を与える、賞'], ['globe','球、地球'], ['tray','盆'], ['aquarium','水族館'],
-  ['calligraphy','書道'], ['laughter','笑い、笑い声'], ['unit','単位'], ['clay','粘土'],
-  ['mascot','マスコット'], ['riddle','なぞなぞ'], ['input','（コンピュータへの）入力'], ['wizard','（男の）魔法使い'],
-  ['manager','支配人、経営者'], ['chicken','ニワトリ、鶏肉'], ['hunting','狩り'], ['pleasure','楽しみ、喜び'],
-  ['stomach','胃'], ['confuse','〜を混乱させる'], ['eighteen','18の、18'], ['final','最後の'],
-  ['smoke','煙、（タバコ）を吸う'], ['advantage','利点'], ['bake','（パンなど）を焼く'], ['flow','流れる、流れ'],
-  ['native','出生地の、自国の、土着の'], ['pattern','型、パターン、模様'], ['designer','デザイナー'], ['resource','資源'],
-  ['rocket','ロケット'], ['stream','小川'], ['Thailand','タイ'], ['weed','雑草'],
-  ['ban','〜を禁止する'], ['carbon','炭素'], ['consider','〜をよく考える'], ['hang','〜をかける、かかる'],
-  ['mayor','市長'], ['observe','〜を観察する'], ['Hawaiian','ハワイ人（語）、ハワイ（人・語）の'], ['mosquito','（昆虫）カ'],
-  ['candle','ろうそく'], ['complain','不平を言う'], ['discuss','〜について議論する'], ['embarrassed','恥ずかしい'],
-  ['flat','平らな'], ['including','〜をふくめて'], ['jacket','上着、ジャケット、（本の）カバー'], ['match','試合、（1本の）マッチ、（〜と）調和する'],
-  ['button','ボタン'], ['liter','（容量の単位）リットル'], ['seriously','まじめに、深刻に'], ['sir','（目上の男性への呼びかけで）あなたさま'],
-  ['worth','〜の価値がある、価値'], ['copy','写し、コピー、1冊、〜を写す、複写する'], ['display','〜を展示する、展示（品）'], ['Greek','ギリシャ人（語）、ギリシャ（人・語）の'],
-  ['heaven','天国'], ['medal','メダル'], ['fit','（〜に）ぴったり合う'], ['instrument','楽器、器具'],
-  ['Korean','朝鮮（韓国）人（語）、朝鮮（韓国）（人・語）の'], ['shower','シャワー、にわか雨'], ['sidewalk','（舗装された）歩道'], ['supply','〜を供給する、供給'],
-  ['cleanup','（大）そうじ'], ['operate','（機械）を操作する、〜を手術する'], ['rainbow','虹'], ['lane','（道路の）車線'],
-  ['silk','絹、絹糸'], ['telescope','望遠鏡'], ['ambulance','救急車'], ['yawn','あくび、あくびをする'],
-  ['hey','やあ、ちょっと'], ['itself','それ自身（を(に)）'], ['industry','産業、工業'], ['advance','進歩する、〜を進歩させる、進歩'],
-  ['divide','〜を分ける'], ['bark','（イヌなどが）ほえる、ほえ声'], ['prefer','〜のほうを好む'], ['hobby','趣味'],
-  ['muscle','筋肉'], ['noodle','めん類'], ['quick','速い、すばやい'], ['bathroom','浴室、トイレ'],
-  ['decrease','減る、〜を減らす'], ['difficulty','困難'], ['gram','（重量の単位）グラム'], ['recognize','〜とわかる、〜を認める'],
-  ['bat','コウモリ、（野球などの）バット'], ['brass band','吹奏楽団'], ['effective','効果的な'], ['mostly','大部分は、たいてい'],
-  ['orchestra','管弦楽団'], ['personality','個性、性格'], ['Pacific','太平洋の'], ['pupil','生徒'],
+  ['compare','〜を比較する'], ['positive','積極的な、肯定的な'], ['succeed','成功する'], ['danger','危険'],
+  ['cultural','文化の、文化的な'], ['impact','衝撃、影響'], ['avoid','〜を避ける'], ['physical','身体の、物質の'],
+  ['connection','つながり'], ['environmental','環境の'], ['degree','（温度・角度などの）度、程度'], ['include','〜をふくむ'],
+  ['brave','勇敢な'], ['remove','〜を取り除く'], ['recent','最近の'], ['refuse','〜を拒む'],
+  ['organization','組織'], ['equal','等しい、平等の'], ['honest','正直な'], ['population','人口'],
+  ['manager','支配人、経営者'], ['resource','資源'], ['consider','〜をよく考える'], ['observe','〜を観察する'],
+  ['industry','産業、工業'], ['recognize','〜とわかる、〜を認める'], ['effective','効果的な'], ['fail','失敗する、（試験など）に落ちる'],
+  ['arrange','〜をきちんと整える、〜を取り決める'], ['designer','デザイナー'],
 ];
 const L5_EJ_NAME = '中学英語L5 英→日';
 const L5_JE_NAME = '中学英語L5 日→英';
@@ -1294,10 +951,104 @@ function ensureLevel5Decks() {
   const mkJE = () => WORDS_L5.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
   const ej = decks.find(d => d.name === L5_EJ_NAME);
   if (!ej) { const d = createDeck(L5_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length < WORDS_L5.length) { ej.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_L5.length) { ej.cards = mkEJ(); }
   const je = decks.find(d => d.name === L5_JE_NAME);
   if (!je) { const d = createDeck(L5_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length < WORDS_L5.length) { je.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_L5.length) { je.cards = mkJE(); }
+  save();
+}
+
+// ══════ 英検3級レベル（中学卒業〜高校基礎の重要語）══════
+const WORDS_E3 = [
+  ['invite','〜を招待する'],
+  ['decide','〜を決める、決心する'],
+  ['introduce','〜を紹介する'],
+  ['understand','〜を理解する'],
+  ['remember','〜を覚えている、思い出す'],
+  ['choose','〜を選ぶ'],
+  ['hope','〜を望む、希望'],
+  ['believe','〜を信じる'],
+  ['practice','〜を練習する、練習'],
+  ['exercise','運動（する）、練習'],
+  ['express','〜を表現する'],
+  ['expect','〜を予期する、期待する'],
+  ['perhaps','たぶん、もしかすると'],
+  ['almost','ほとんど、もう少しで'],
+  ['enough','十分な、十分に'],
+  ['especially','特に、とりわけ'],
+  ['favorite','大好きな、お気に入りの'],
+  ['important','重要な、大切な'],
+  ['popular','人気のある'],
+  ['different','違った、異なる'],
+  ['difficult','難しい'],
+  ['dangerous','危険な'],
+  ['convenient','便利な、都合のよい'],
+  ['delicious','とてもおいしい'],
+  ['foreign','外国の'],
+  ['culture','文化'],
+  ['experience','経験（する）'],
+  ['information','情報'],
+  ['opinion','意見'],
+  ['future','未来、将来'],
+];
+const E3_EJ_NAME = '英検3級 英→日';
+const E3_JE_NAME = '英検3級 日→英';
+function ensureEiken3Decks() {
+  const mkEJ = () => WORDS_E3.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
+  const mkJE = () => WORDS_E3.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
+  const ej = decks.find(d => d.name === E3_EJ_NAME);
+  if (!ej) { const d = createDeck(E3_EJ_NAME, '英検3級 英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
+  else if (ej.cards.length < WORDS_E3.length) { ej.cards = mkEJ(); }
+  const je = decks.find(d => d.name === E3_JE_NAME);
+  if (!je) { const d = createDeck(E3_JE_NAME, '英検3級 日本語の意味から英単語を4択で'); d.cards = mkJE(); }
+  else if (je.cards.length < WORDS_E3.length) { je.cards = mkJE(); }
+  save();
+}
+
+// ══════ 英検2級レベル（高校中級・抽象語彙）══════
+const WORDS_E2 = [
+  ['achieve','〜を達成する、成し遂げる'],
+  ['require','〜を必要とする、要求する'],
+  ['provide','〜を提供する、供給する'],
+  ['prevent','〜を防ぐ、妨げる'],
+  ['reduce','〜を減らす'],
+  ['increase','〜を増やす、増える、増加'],
+  ['improve','〜を改善する、上達する'],
+  ['affect','〜に影響を与える'],
+  ['consider','〜をよく考える、みなす'],
+  ['suggest','〜を提案する、示唆する'],
+  ['maintain','〜を維持する、主張する'],
+  ['recognize','〜を認識する、それと分かる'],
+  ['advantage','利点、有利'],
+  ['benefit','利益、恩恵、〜のためになる'],
+  ['effect','効果、影響'],
+  ['situation','状況、事態'],
+  ['method','方法、方式'],
+  ['research','研究、調査'],
+  ['society','社会'],
+  ['environment','環境'],
+  ['knowledge','知識'],
+  ['ability','能力'],
+  ['average','平均（の）、標準的な'],
+  ['available','利用できる、入手できる'],
+  ['certain','確信して、ある一定の'],
+  ['common','共通の、ふつうの'],
+  ['proper','適切な、正しい'],
+  ['similar','似ている、同様の'],
+  ['various','さまざまな'],
+  ['effective','効果的な'],
+];
+const E2_EJ_NAME = '英検2級 英→日';
+const E2_JE_NAME = '英検2級 日→英';
+function ensureEiken2Decks() {
+  const mkEJ = () => WORDS_E2.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
+  const mkJE = () => WORDS_E2.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
+  const ej = decks.find(d => d.name === E2_EJ_NAME);
+  if (!ej) { const d = createDeck(E2_EJ_NAME, '英検2級 英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
+  else if (ej.cards.length < WORDS_E2.length) { ej.cards = mkEJ(); }
+  const je = decks.find(d => d.name === E2_JE_NAME);
+  if (!je) { const d = createDeck(E2_JE_NAME, '英検2級 日本語の意味から英単語を4択で'); d.cards = mkJE(); }
+  else if (je.cards.length < WORDS_E2.length) { je.cards = mkJE(); }
   save();
 }
 
@@ -1842,6 +1593,234 @@ const G5_ROLE = [
   ['次の文の動詞（V）はどれ？\nWe found the movie boring.','found',['We','the movie','boring']],
 ];
 const G5ROLE_NAME = '5文型 役割さがし（穴埋め）';
+const G5ARR_NAME = '5文型 並べ替え（文づくり）';
+const ARRANGE_VER = 2;
+const VERB_CONJ = [
+  ['be（〜である）の【過去形】は？','was/were',['bitten','ran','flew']],
+  ['be（〜である）の【過去分詞】は？','been',['bit','slept','got']],
+  ['begin（始める）の【過去形】は？','began',['said','bought','gave']],
+  ['begin（始める）の【過去分詞】は？','begun',['spoken','brought','said']],
+  ['break（こわす）の【過去形】は？','broke',['sent','swam','heard']],
+  ['break（こわす）の【過去分詞】は？','broken',['grew','ridden','heard']],
+  ['bring（持ってくる）の【過去形】は？','brought',['cut','known','drank']],
+  ['bring（持ってくる）の【過去分詞】は？','brought',['given','sat','sold']],
+  ['build（建てる）の【過去形】は？','built',['known','found','read']],
+  ['build（建てる）の【過去分詞】は？','built',['thrown','bit','forgotten']],
+  ['buy（買う）の【過去形】は？','bought',['cut','written','grew']],
+  ['buy（買う）の【過去分詞】は？','bought',['got','did','forgotten']],
+  ['catch（つかまえる）の【過去形】は？','caught',['spoke','run','sat']],
+  ['catch（つかまえる）の【過去分詞】は？','caught',['chose','fallen','ate']],
+  ['choose（選ぶ）の【過去形】は？','chose',['said','fell','sold']],
+  ['choose（選ぶ）の【過去分詞】は？','chosen',['flown','driven','drawn']],
+  ['come（来る）の【過去形】は？','came',['done','told','rode']],
+  ['come（来る）の【過去分詞】は？','come',['put','grew','known']],
+  ['cut（切る）の【過去形】は？','cut',['felt','sent','forgotten']],
+  ['cut（切る）の【過去分詞】は？','cut',['grew','spoke','sold']],
+  ['do（する）の【過去形】は？','did',['spent','began','ridden']],
+  ['do（する）の【過去分詞】は？','done',['heard','caught','built']],
+  ['draw（描く）の【過去形】は？','drew',['grew','fell','lost']],
+  ['draw（描く）の【過去分詞】は？','drawn',['hit','wrote','flown']],
+  ['drink（飲む）の【過去形】は？','drank',['thought','come','came']],
+  ['drink（飲む）の【過去分詞】は？','drunk',['flown','gotten','began']],
+  ['drive（運転する）の【過去形】は？','drove',['done','chosen','drew']],
+  ['drive（運転する）の【過去分詞】は？','driven',['drove','written','caught']],
+  ['eat（食べる）の【過去形】は？','ate',['sent','made','did']],
+  ['eat（食べる）の【過去分詞】は？','eaten',['run','sold','broke']],
+  ['fall（落ちる）の【過去形】は？','fell',['hit','flew','held']],
+  ['fall（落ちる）の【過去分詞】は？','fallen',['spoken','left','kept']],
+  ['feel（感じる）の【過去形】は？','felt',['sent','rode','found']],
+  ['feel（感じる）の【過去分詞】は？','felt',['broken','threw','drove']],
+  ['find（見つける）の【過去形】は？','found',['rode','had','took']],
+  ['find（見つける）の【過去分詞】は？','found',['taken','heard','come']],
+  ['fly（飛ぶ）の【過去形】は？','flew',['wrote','spoken','met']],
+  ['fly（飛ぶ）の【過去分詞】は？','flown',['flew','forgotten','found']],
+  ['forget（忘れる）の【過去形】は？','forgot',['known','fell','wrote']],
+  ['forget（忘れる）の【過去分詞】は？','forgotten',['swum','drew','understood']],
+  ['get（得る）の【過去形】は？','got',['ate','rode','risen']],
+  ['get（得る）の【過去分詞】は？','gotten',['wore','ridden','chose']],
+  ['give（与える）の【過去形】は？','gave',['did','driven','hit']],
+  ['give（与える）の【過去分詞】は？','given',['sat','begun','bitten']],
+  ['go（行く）の【過去形】は？','went',['thought','won','swam']],
+  ['go（行く）の【過去分詞】は？','gone',['understood','came','kept']],
+  ['grow（成長する）の【過去形】は？','grew',['heard','ran','spent']],
+  ['grow（成長する）の【過去分詞】は？','grown',['felt','drove','bitten']],
+  ['have（持っている）の【過去形】は？','had',['broken','told','done']],
+  ['have（持っている）の【過去分詞】は？','had',['broke','grown','spoke']],
+  ['hear（聞く）の【過去形】は？','heard',['brought','began','sung']],
+  ['hear（聞く）の【過去分詞】は？','heard',['made','thrown','spoke']],
+  ['hit（打つ）の【過去形】は？','hit',['got','gotten','left']],
+  ['hit（打つ）の【過去分詞】は？','hit',['caught','went','grew']],
+  ['hold（持つ・つかむ）の【過去形】は？','held',['spoke','forgotten','did']],
+  ['hold（持つ・つかむ）の【過去分詞】は？','held',['sat','drew','chosen']],
+  ['keep（保つ）の【過去形】は？','kept',['swum','said','taught']],
+  ['keep（保つ）の【過去分詞】は？','kept',['had','began','stood']],
+  ['know（知っている）の【過去形】は？','knew',['given','broke','flown']],
+  ['know（知っている）の【過去分詞】は？','known',['flown','rode','taken']],
+  ['leave（去る・置いていく）の【過去形】は？','left',['taken','gone','made']],
+  ['leave（去る・置いていく）の【過去分詞】は？','left',['threw','won','met']],
+  ['lend（貸す）の【過去形】は？','lent',['written','ran','eaten']],
+  ['lend（貸す）の【過去分詞】は？','lent',['seen','risen','gone']],
+  ['lose（失う・負ける）の【過去形】は？','lost',['driven','seen','sang']],
+  ['lose（失う・負ける）の【過去分詞】は？','lost',['found','worn','kept']],
+  ['make（作る）の【過去形】は？','made',['known','read','kept']],
+  ['make（作る）の【過去分詞】は？','made',['drank','found','put']],
+  ['meet（会う）の【過去形】は？','met',['spoke','eaten','rode']],
+  ['meet（会う）の【過去分詞】は？','met',['taken','bitten','taught']],
+  ['pay（支払う）の【過去形】は？','paid',['flew','known','hit']],
+  ['pay（支払う）の【過去分詞】は？','paid',['met','begun','forgotten']],
+  ['put（置く）の【過去形】は？','put',['made','begun','done']],
+  ['put（置く）の【過去分詞】は？','put',['come','ran','caught']],
+  ['read（読む）の【過去形】は？','read',['given','bitten','known']],
+  ['read（読む）の【過去分詞】は？','read',['spent','seen','lent']],
+  ['ride（乗る）の【過去形】は？','rode',['given','came','won']],
+  ['ride（乗る）の【過去分詞】は？','ridden',['bit','broke','found']],
+  ['rise（のぼる）の【過去形】は？','rose',['stood','put','begun']],
+  ['rise（のぼる）の【過去分詞】は？','risen',['sung','made','did']],
+  ['run（走る）の【過去形】は？','ran',['built','chose','written']],
+  ['run（走る）の【過去分詞】は？','run',['bought','sung','fallen']],
+  ['say（言う）の【過去形】は？','said',['flew','gave','been']],
+  ['say（言う）の【過去分詞】は？','said',['chose','met','fallen']],
+  ['see（見る）の【過去形】は？','saw',['showed','kept','got']],
+  ['see（見る）の【過去分詞】は？','seen',['come','driven','read']],
+  ['sell（売る）の【過去形】は？','sold',['forgotten','flew','taken']],
+  ['sell（売る）の【過去分詞】は？','sold',['met','chose','rode']],
+  ['send（送る）の【過去形】は？','sent',['thrown','taken','thought']],
+  ['send（送る）の【過去分詞】は？','sent',['wrote','came','read']],
+  ['show（見せる）の【過去形】は？','showed',['began','wrote','rose']],
+  ['show（見せる）の【過去分詞】は？','shown',['fallen','sold','sang']],
+  ['sing（歌う）の【過去形】は？','sang',['kept','hit','fallen']],
+  ['sing（歌う）の【過去分詞】は？','sung',['eaten','flew','sat']],
+  ['sit（すわる）の【過去形】は？','sat',['went','stood','spoke']],
+  ['sit（すわる）の【過去分詞】は？','sat',['spoken','chose','saw']],
+  ['sleep（眠る）の【過去形】は？','slept',['taught','took','ridden']],
+  ['sleep（眠る）の【過去分詞】は？','slept',['got','fallen','shown']],
+  ['speak（話す）の【過去形】は？','spoke',['broken','left','cut']],
+  ['speak（話す）の【過去分詞】は？','spoken',['forgot','drew','broken']],
+  ['spend（過ごす・使う）の【過去形】は？','spent',['cut','come','run']],
+  ['spend（過ごす・使う）の【過去分詞】は？','spent',['bought','hit','met']],
+  ['stand（立つ）の【過去形】は？','stood',['rode','showed','thrown']],
+  ['stand（立つ）の【過去分詞】は？','stood',['took','swam','shown']],
+  ['swim（泳ぐ）の【過去形】は？','swam',['went','stood','drew']],
+  ['swim（泳ぐ）の【過去分詞】は？','swum',['written','spoken','was/were']],
+  ['take（取る）の【過去形】は？','took',['sat','thought','flown']],
+  ['take（取る）の【過去分詞】は？','taken',['hit','was/were','spoken']],
+  ['teach（教える）の【過去形】は？','taught',['been','got','thrown']],
+  ['teach（教える）の【過去分詞】は？','taught',['did','stood','found']],
+  ['tell（伝える）の【過去形】は？','told',['taught','had','grew']],
+  ['tell（伝える）の【過去分詞】は？','told',['brought','run','ridden']],
+  ['think（考える）の【過去形】は？','thought',['began','forgot','felt']],
+  ['think（考える）の【過去分詞】は？','thought',['understood','rose','been']],
+  ['throw（投げる）の【過去形】は？','threw',['flown','bought','met']],
+  ['throw（投げる）の【過去分詞】は？','thrown',['went','sat','kept']],
+  ['understand（理解する）の【過去形】は？','understood',['forgotten','did','taught']],
+  ['understand（理解する）の【過去分詞】は？','understood',['driven','lent','grew']],
+  ['wear（身につけている）の【過去形】は？','wore',['got','gone','sung']],
+  ['wear（身につけている）の【過去分詞】は？','worn',['done','broke','shown']],
+  ['win（勝つ）の【過去形】は？','won',['saw','wore','held']],
+  ['win（勝つ）の【過去分詞】は？','won',['bitten','worn','come']],
+  ['write（書く）の【過去形】は？','wrote',['sang','worn','begun']],
+  ['write（書く）の【過去分詞】は？','written',['threw','chosen','begun']],
+  ['bite（かむ）の【過去形】は？','bit',['taught','swam','sent']],
+  ['bite（かむ）の【過去分詞】は？','bitten',['was/were','swum','broke']],
+];
+const VERB_TRANS = [
+  ['「was/were」の意味は？（動詞の活用形）','だった',['行った','失った・負けた','与えた']],
+  ['「been」の意味は？（動詞の活用形）','だった',['保った','支払った','失った・負けた']],
+  ['「began」の意味は？（動詞の活用形）','始めた',['建てた','売った','眠った']],
+  ['「begun」の意味は？（動詞の活用形）','始めた',['立った','伝えた','選んだ']],
+  ['「broke」の意味は？（動詞の活用形）','こわした',['会った','取った','保った']],
+  ['「broken」の意味は？（動詞の活用形）','こわした',['歌った','噛んだ','貸した']],
+  ['「brought」の意味は？（動詞の活用形）','持ってきた',['眠った','教えた','送った']],
+  ['「built」の意味は？（動詞の活用形）','建てた',['だった','運転した','のぼった']],
+  ['「bought」の意味は？（動詞の活用形）','買った',['持っていた','保った','言った']],
+  ['「caught」の意味は？（動詞の活用形）','つかまえた',['落ちた','だった','飛んだ']],
+  ['「chose」の意味は？（動詞の活用形）','選んだ',['得た','飛んだ','理解した']],
+  ['「chosen」の意味は？（動詞の活用形）','選んだ',['得た','つかんだ','見せた']],
+  ['「came」の意味は？（動詞の活用形）','来た',['売った','伝えた','描いた']],
+  ['「come」の意味は？（動詞の活用形）','来た',['行った','投げた','した']],
+  ['「cut」の意味は？（動詞の活用形）','切った',['描いた','過ごした','建てた']],
+  ['「did」の意味は？（動詞の活用形）','した',['知っていた','食べた','売った']],
+  ['「done」の意味は？（動詞の活用形）','した',['成長した','つかまえた','選んだ']],
+  ['「drew」の意味は？（動詞の活用形）','描いた',['飛んだ','得た','感じた']],
+  ['「drawn」の意味は？（動詞の活用形）','描いた',['身につけていた','送った','持ってきた']],
+  ['「drank」の意味は？（動詞の活用形）','飲んだ',['建てた','泳いだ','身につけていた']],
+  ['「drunk」の意味は？（動詞の活用形）','飲んだ',['勝った','立った','作った']],
+  ['「drove」の意味は？（動詞の活用形）','運転した',['噛んだ','投げた','勝った']],
+  ['「driven」の意味は？（動詞の活用形）','運転した',['身につけていた','描いた','作った']],
+  ['「ate」の意味は？（動詞の活用形）','食べた',['取った','買った','作った']],
+  ['「eaten」の意味は？（動詞の活用形）','食べた',['話した','成長した','言った']],
+  ['「fell」の意味は？（動詞の活用形）','落ちた',['去った','聞いた','すわった']],
+  ['「fallen」の意味は？（動詞の活用形）','落ちた',['送った','のぼった','見た']],
+  ['「felt」の意味は？（動詞の活用形）','感じた',['飛んだ','すわった','売った']],
+  ['「found」の意味は？（動詞の活用形）','見つけた',['知っていた','書いた','投げた']],
+  ['「flew」の意味は？（動詞の活用形）','飛んだ',['過ごした','置いた','成長した']],
+  ['「flown」の意味は？（動詞の活用形）','飛んだ',['すわった','選んだ','言った']],
+  ['「forgot」の意味は？（動詞の活用形）','忘れた',['与えた','つかまえた','読んだ']],
+  ['「forgotten」の意味は？（動詞の活用形）','忘れた',['すわった','立った','成長した']],
+  ['「got」の意味は？（動詞の活用形）','得た',['食べた','のぼった','だった']],
+  ['「gotten」の意味は？（動詞の活用形）','得た',['送った','投げた','保った']],
+  ['「gave」の意味は？（動詞の活用形）','与えた',['送った','こわした','身につけていた']],
+  ['「given」の意味は？（動詞の活用形）','与えた',['持ってきた','泳いだ','のぼった']],
+  ['「went」の意味は？（動詞の活用形）','行った',['食べた','のぼった','置いた']],
+  ['「gone」の意味は？（動詞の活用形）','行った',['身につけていた','貸した','すわった']],
+  ['「grew」の意味は？（動詞の活用形）','成長した',['見せた','作った','貸した']],
+  ['「grown」の意味は？（動詞の活用形）','成長した',['した','見た','始めた']],
+  ['「had」の意味は？（動詞の活用形）','持っていた',['打った','読んだ','保った']],
+  ['「heard」の意味は？（動詞の活用形）','聞いた',['読んだ','持っていた','見せた']],
+  ['「hit」の意味は？（動詞の活用形）','打った',['売った','教えた','すわった']],
+  ['「held」の意味は？（動詞の活用形）','つかんだ',['始めた','乗った','来た']],
+  ['「kept」の意味は？（動詞の活用形）','保った',['のぼった','去った','考えた']],
+  ['「knew」の意味は？（動詞の活用形）','知っていた',['成長した','去った','始めた']],
+  ['「known」の意味は？（動詞の活用形）','知っていた',['乗った','来た','だった']],
+  ['「left」の意味は？（動詞の活用形）','去った',['売った','運転した','教えた']],
+  ['「lent」の意味は？（動詞の活用形）','貸した',['した','失った・負けた','噛んだ']],
+  ['「lost」の意味は？（動詞の活用形）','失った・負けた',['身につけていた','言った','来た']],
+  ['「made」の意味は？（動詞の活用形）','作った',['失った・負けた','だった','考えた']],
+  ['「met」の意味は？（動詞の活用形）','会った',['理解した','飲んだ','取った']],
+  ['「paid」の意味は？（動詞の活用形）','支払った',['考えた','持ってきた','得た']],
+  ['「put」の意味は？（動詞の活用形）','置いた',['書いた','始めた','話した']],
+  ['「read」の意味は？（動詞の活用形）','読んだ',['知っていた','取った','すわった']],
+  ['「rode」の意味は？（動詞の活用形）','乗った',['切った','送った','去った']],
+  ['「ridden」の意味は？（動詞の活用形）','乗った',['売った','忘れた','買った']],
+  ['「rose」の意味は？（動詞の活用形）','のぼった',['貸した','会った','持っていた']],
+  ['「risen」の意味は？（動詞の活用形）','のぼった',['つかまえた','知っていた','過ごした']],
+  ['「ran」の意味は？（動詞の活用形）','走った',['見せた','知っていた','伝えた']],
+  ['「run」の意味は？（動詞の活用形）','走った',['のぼった','売った','感じた']],
+  ['「said」の意味は？（動詞の活用形）','言った',['会った','建てた','忘れた']],
+  ['「saw」の意味は？（動詞の活用形）','見た',['した','伝えた','読んだ']],
+  ['「seen」の意味は？（動詞の活用形）','見た',['すわった','行った','つかまえた']],
+  ['「sold」の意味は？（動詞の活用形）','売った',['身につけていた','貸した','つかんだ']],
+  ['「sent」の意味は？（動詞の活用形）','送った',['切った','つかんだ','知っていた']],
+  ['「showed」の意味は？（動詞の活用形）','見せた',['作った','理解した','伝えた']],
+  ['「shown」の意味は？（動詞の活用形）','見せた',['乗った','投げた','行った']],
+  ['「sang」の意味は？（動詞の活用形）','歌った',['保った','書いた','置いた']],
+  ['「sung」の意味は？（動詞の活用形）','歌った',['貸した','すわった','乗った']],
+  ['「sat」の意味は？（動詞の活用形）','すわった',['来た','読んだ','身につけていた']],
+  ['「slept」の意味は？（動詞の活用形）','眠った',['だった','会った','見た']],
+  ['「spoke」の意味は？（動詞の活用形）','話した',['立った','理解した','忘れた']],
+  ['「spoken」の意味は？（動詞の活用形）','話した',['取った','伝えた','見せた']],
+  ['「spent」の意味は？（動詞の活用形）','過ごした',['噛んだ','伝えた','走った']],
+  ['「stood」の意味は？（動詞の活用形）','立った',['得た','見せた','聞いた']],
+  ['「swam」の意味は？（動詞の活用形）','泳いだ',['見つけた','打った','言った']],
+  ['「swum」の意味は？（動詞の活用形）','泳いだ',['失った・負けた','描いた','つかまえた']],
+  ['「took」の意味は？（動詞の活用形）','取った',['こわした','勝った','身につけていた']],
+  ['「taken」の意味は？（動詞の活用形）','取った',['買った','見せた','言った']],
+  ['「taught」の意味は？（動詞の活用形）','教えた',['買った','泳いだ','支払った']],
+  ['「told」の意味は？（動詞の活用形）','伝えた',['飛んだ','聞いた','投げた']],
+  ['「thought」の意味は？（動詞の活用形）','考えた',['保った','過ごした','読んだ']],
+  ['「threw」の意味は？（動詞の活用形）','投げた',['言った','身につけていた','切った']],
+  ['「thrown」の意味は？（動詞の活用形）','投げた',['打った','泳いだ','走った']],
+  ['「understood」の意味は？（動詞の活用形）','理解した',['置いた','過ごした','すわった']],
+  ['「wore」の意味は？（動詞の活用形）','身につけていた',['つかんだ','つかまえた','乗った']],
+  ['「worn」の意味は？（動詞の活用形）','身につけていた',['得た','行った','選んだ']],
+  ['「won」の意味は？（動詞の活用形）','勝った',['書いた','成長した','見た']],
+  ['「wrote」の意味は？（動詞の活用形）','書いた',['会った','保った','行った']],
+  ['「written」の意味は？（動詞の活用形）','書いた',['保った','歌った','始めた']],
+  ['「bit」の意味は？（動詞の活用形）','噛んだ',['知っていた','見せた','落ちた']],
+  ['「bitten」の意味は？（動詞の活用形）','噛んだ',['教えた','会った','選んだ']],
+];
+const VC_NAME = '不規則動詞① 活用形（過去形・過去分詞）';
+const VT_NAME = '不規則動詞② 活用形→意味';
 function ensureGrammar5Decks() {
   const patOf = q => { const m = q.match(/「(.+?)」/); return m ? m[1] : ''; };
   const info = en => SENTENCE_INFO[en] || null;
@@ -1870,6 +1849,80 @@ function ensureGrammar5Decks() {
   setup(G5L3_NAME, () => mkPlain(G5_L3), G5_L3.length, '上級：英文を見て文型を4択で');
   const mkRole = () => G5_ROLE.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:w[2].slice() }));
   setup(G5ROLE_NAME, mkRole, G5_ROLE.length, '文の中の役割（S/V/O/C/副詞）を4択で');
+  // 並べ替え（文づくり）：SENT2 のかたまりから自動生成（3〜6かたまり）
+  const mkArr = () => Object.keys(SENT2).map(en => {
+    const info = SENT2[en]; const chunks = info[3];
+    const order = chunks.map(c => c[0]);
+    if (order.length < 3 || order.length > 6) return null;
+    return { id:_nextCid++, q: info[1], a: en, order: order, roles: chunks.map(c => c[1]), pat: info[0], mode:'arrange' };
+  }).filter(Boolean);
+  const arrLen = Object.keys(SENT2).filter(en => { const n = SENT2[en][3].length; return n >= 3 && n <= 6; }).length;
+  const setupArr = () => {
+    let d = decks.find(x => x.name === G5ARR_NAME);
+    if (!d) { d = createDeck(G5ARR_NAME, 'かたまりを並べ替えて英文を作る'); d.cards = mkArr(); }
+    else if (d.av !== ARRANGE_VER || d.cards.length < arrLen) { d.cards = mkArr(); }
+    d.mode = 'arrange'; d.av = ARRANGE_VER;
+  };
+  setupArr();
+  const mkVC = () => VERB_CONJ.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:w[2].slice() }));
+  const mkVT = () => VERB_TRANS.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:w[2].slice() }));
+  const setupPlainDeck = (name, mk, len, desc) => {
+    let d = decks.find(x => x.name === name);
+    if (!d) { d = createDeck(name, desc); d.cards = mk(); }
+    else if (d.cards.length < len) { d.cards = mk(); }
+  };
+  setupPlainDeck(VC_NAME, mkVC, VERB_CONJ.length, '原形から過去形・過去分詞を4択で');
+  setupPlainDeck(VT_NAME, mkVT, VERB_TRANS.length, '活用形を見て意味を4択で');
+  // 答えた後に「原形 - 過去形 - 過去分詞（意味）」の活用まとめを出す解説を付与
+  (function attachVerbExp(){
+    const conj = {};
+    VERB_CONJ.forEach(w => {
+      const m = w[0].match(/^(\S+?)（(.+?)）の【(過去形|過去分詞)】/);
+      if (!m) return;
+      conj[m[1]] = conj[m[1]] || { meaning: m[2] };
+      if (m[3] === '過去形') conj[m[1]].past = w[1]; else conj[m[1]].pp = w[1];
+    });
+    const expOf = base => { const c = conj[base]; return c ? (base + ' - ' + (c.past || '?') + ' - ' + (c.pp || '?') + '　' + c.meaning) : ''; };
+    const f2b = {};
+    Object.keys(conj).forEach(base => { const c = conj[base]; if (c.past) f2b[c.past] = base; if (c.pp) f2b[c.pp] = base; });
+    const vc = decks.find(d => d.name === VC_NAME);
+    if (vc) vc.cards.forEach(card => { const m = card.q.match(/^(\S+?)（/); if (m) card.exp = expOf(m[1]); });
+    const vt = decks.find(d => d.name === VT_NAME);
+    if (vt) vt.cards.forEach(card => { const m = card.q.match(/^「(.+?)」/); if (m && f2b[m[1]]) card.exp = expOf(f2b[m[1]]); });
+    // 不規則動詞①：ダミー選択肢を「同じ動詞の活用形」優先で作り直す。
+    // ① 同じ動詞の実在活用形（原形・過去形・過去分詞）を優先。
+    // ② cut/hit/put/read など変化しない動詞は、正解に規則語尾（-ed/-ing）を無理やり付けた
+    //    “もっともらしいニセ活用形”で埋める（cut→cutted/cutting/cuted）。ひっかけ用。
+    // ③ それでも足りなければ同種（過去形どうし／過去分詞どうし）の他動詞から補う（保険）。
+    const allPasts = [], allPps = [];
+    Object.keys(conj).forEach(b => { const c = conj[b]; if (c.past) allPasts.push(c.past); if (c.pp) allPps.push(c.pp); });
+    const _fakeForms = base => {
+      const b = base, last = b[b.length - 1];
+      const isVowelEnd = 'aeiou'.includes(last), endsE = b.endsWith('e');
+      const forms = [];
+      if (endsE) { forms.push(b + 'd'); }                                  // come→comed
+      else { forms.push(b + 'ed'); if (!isVowelEnd) forms.push(b + last + 'ed'); }   // cut→cuted / cutted
+      if (endsE) { forms.push(b.slice(0, -1) + 'ing'); }                   // come→coming
+      else { forms.push(b + 'ing'); if (!isVowelEnd) forms.push(b + last + 'ing'); } // cut→cuting / cutting
+      return forms;
+    };
+    if (vc) vc.cards.forEach(card => {
+      const m = card.q.match(/^(\S+?)（/); if (!m) return;
+      const base = m[1], c = conj[base]; if (!c) return;
+      const isPast = /【過去形】/.test(card.q);
+      const correct = card.a;
+      const ds = new Set();
+      [base, c.past, c.pp].forEach(w => { if (w && w !== correct) ds.add(w); });          // ①
+      if (ds.size < 3) _shuffle(_fakeForms(base)).forEach(w => {                            // ②
+        if (ds.size < 3 && w !== correct && !ds.has(w)) ds.add(w);
+      });
+      if (ds.size < 3) {                                                                    // ③
+        const pool = _shuffle((isPast ? allPasts : allPps).slice());
+        for (const w of pool) { if (ds.size >= 3) break; if (w !== correct && !ds.has(w)) ds.add(w); }
+      }
+      card.ds = [...ds].slice(0, 3);
+    });
+  })();
   save();
 }
 
@@ -1878,6 +1931,192 @@ function goTo(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   if (page === 'decks') renderDeckList();
+}
+
+// ══════ ARRANGE（並べ替えで文づくり）══════
+let AQ = null;
+function startArrange(deckId, count) {
+  const deck = deckById(deckId); if (!deck) return;
+  const pool = _shuffle(deck.cards.slice()).slice(0, count || deck.cards.length);
+  AQ = {
+    deckId: deck.id, deckName: deck.name,
+    questions: pool.map(c => ({ ja: c.q, a: c.a, order: c.order.slice(), roles: (c.roles||[]).slice(), pat: c.pat || '' })),
+    idx: 0, score: 0, combo: 0, maxCombo: 0, answered: false, review: [],
+  };
+  document.getElementById('arr-deck-name').textContent = deck.name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-arrange').classList.add('active');
+  renderArrange();
+}
+// おとり（ダミー）のかたまりを、同じデッキの他の文から作る。
+// 正解と同じ役割（S/V/O…）を優先し、足りなければ他の役割から補う。
+function _arrDummies(deck, q, want) {
+  if (!deck || want <= 0) return [];
+  const used = new Set(q.order.map(t => t.toLowerCase()));   // 正解に使う語は除外
+  const wantRoles = new Set(q.roles || []);
+  const sameRole = [], other = [];
+  deck.cards.forEach(c => {
+    if (c.a === q.a) return;                                 // 同じ問題のかたまりは使わない
+    const ord = c.order || [], rol = c.roles || [];
+    ord.forEach((w, i) => {
+      if (used.has(w.toLowerCase())) return;
+      (wantRoles.has(rol[i]) ? sameRole : other).push(w);
+    });
+  });
+  const uniq = arr => {                                      // 表記ゆれ含め重複を除去
+    const m = new Map();
+    arr.forEach(w => { const k = w.toLowerCase(); if (!m.has(k)) m.set(k, w); });
+    return [...m.values()];
+  };
+  const picks = _shuffle(uniq(sameRole));
+  if (picks.length < want) {
+    const have = new Set(picks.map(w => w.toLowerCase()));
+    _shuffle(uniq(other)).forEach(w => { if (!have.has(w.toLowerCase())) picks.push(w); });
+  }
+  return picks.slice(0, want);
+}
+// 正解順（id=0,1,2…）と一致しない並びになるまでシャッフル
+function _shuffleScrambled(tokens) {
+  const arr = tokens.slice();
+  if (arr.length < 2) return arr;
+  for (let tries = 0; tries < 30; tries++) {
+    _shuffle(arr);
+    const sameAsAnswer = arr.every((t, i) => t.id === i);
+    if (!sameAsAnswer) return arr;
+  }
+  // 保険：先頭2つを入れ替えて必ず崩す
+  const t = arr[0]; arr[0] = arr[1]; arr[1] = t; return arr;
+}
+function renderArrange() {
+  const q = AQ.questions[AQ.idx];
+  AQ.answered = false;
+  // 正解のかたまり（正解順の index を id に）
+  q.tokens = q.order.map((t, i) => ({ id: i, text: t }));
+  // おとり（ダミー）を追加：短い文ほど多めに混ぜ、単なる並べ替えにさせない
+  const deck = deckById(AQ.deckId);
+  const want = Math.max(2, 6 - q.order.length);
+  q.dummies = _arrDummies(deck, q, want).map(text => ({ id: -1, text: text, dummy: true }));
+  q.all = q.tokens.concat(q.dummies);        // 出題する全かたまり（ラベル固定用）
+  // ダミーがあれば全体をシャッフル。無ければ従来どおり正解と一致しない並びに
+  q.pool = q.dummies.length ? _shuffle(q.all.slice()) : _shuffleScrambled(q.tokens);
+  q.slots = [];
+  document.getElementById('arr-prog').textContent = `Q${AQ.idx + 1} / ${AQ.questions.length}`;
+  document.getElementById('arr-score').textContent = AQ.score;
+  document.getElementById('arr-combo').textContent = AQ.combo;
+  document.getElementById('arr-prompt').textContent = '「' + q.ja + '」';
+  document.getElementById('arr-explain').className = 'explain';
+  document.getElementById('arr-next').classList.remove('show');
+  document.getElementById('arr-check').disabled = true;
+  document.getElementById('arr-clear').style.display = '';
+  document.getElementById('arr-check').style.display = '';
+  drawArrange();
+}
+const _LET = ['A','B','C','D','E','F','G','H','I','J','K','L'];
+function drawArrange() {
+  const q = AQ.questions[AQ.idx];
+  const slotsEl = document.getElementById('arr-slots');
+  const poolEl = document.getElementById('arr-pool');
+  slotsEl.innerHTML = '';
+  q.slots.forEach((tok, pos) => {
+    const b = document.createElement('button');
+    b.className = 'arr-tok placed';
+    b.innerHTML = `<span class="tok-badge">${pos + 1}</span>${escapeHtml(dispTok(tok.text, tok.id === 0))}`;
+    if (!AQ.answered) b.onclick = () => { q.pool.push(tok); q.slots.splice(pos, 1); drawArrange(); syncCheck(); };
+    slotsEl.appendChild(b);
+  });
+  poolEl.innerHTML = '';
+  q.pool.forEach((tok) => {
+    const b = document.createElement('button');
+    b.className = 'arr-tok';
+    const lbl = _LET[q.all.indexOf(tok)] || '•';
+    b.innerHTML = `<span class="tok-badge">${lbl}</span>${escapeHtml(dispTok(tok.text, tok.id === 0))}`;
+    b.onclick = () => { q.slots.push(tok); q.pool.splice(q.pool.indexOf(tok), 1); drawArrange(); syncCheck(); };
+    poolEl.appendChild(b);
+  });
+}
+// 表示用：文頭に来るかたまりの先頭大文字だけ小文字化（文頭ヒントを消す）。
+// 固有名詞（I / 人名・地名・言語名 / New York など）は大文字のまま。文中の語は一切いじらない。
+function dispTok(text, isFirst) {
+  if (!isFirst) return text;
+  const first = text.split(' ')[0];
+  const PROP = /^(I|Tom|John|Bob|Max|Pochi|Kate|English|French|Italian|German|Chinese|Korean|Japan|Japanese|America|American|London|Africa|Europe|Canada|China|India|France|New|United)$/;
+  if (PROP.test(first) || /[A-Z]/.test(first.slice(1))) return text;
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+function syncCheck() {
+  const q = AQ.questions[AQ.idx];
+  // 正解の語数ぶん置けたらOK（おとりはプールに残っていてよい）
+  document.getElementById('arr-check').disabled = q.slots.length !== q.order.length;
+}
+function arrClear() {
+  if (AQ.answered) return;
+  const q = AQ.questions[AQ.idx];
+  q.pool = (q.dummies && q.dummies.length) ? _shuffle(q.all.slice()) : _shuffleScrambled(q.tokens);
+  q.slots = [];
+  drawArrange(); syncCheck();
+}
+function arrCheck() {
+  const q = AQ.questions[AQ.idx];
+  if (AQ.answered || q.slots.length !== q.order.length) return;
+  AQ.answered = true;
+  const ok = q.slots.length === q.order.length && q.slots.every((tok, i) => tok.id === i);
+  // スロットに正誤の色をつける
+  const slotsEl = document.getElementById('arr-slots');
+  [...slotsEl.children].forEach((el, pos) => {
+    el.classList.remove('placed');
+    el.classList.add(q.slots[pos].id === pos ? 'ok' : 'ng');
+    el.onclick = null;
+  });
+  if (ok) { AQ.score++; AQ.combo++; AQ.maxCombo = Math.max(AQ.maxCombo, AQ.combo); sndCorrect(); fxFlash('rgba(47,158,68,.4)'); }
+  else { AQ.combo = 0; sndWrong(); fxFlash('rgba(224,49,49,.45)'); fxShake(); }
+  document.getElementById('arr-score').textContent = AQ.score;
+  document.getElementById('arr-combo').textContent = AQ.combo;
+  AQ.review.push({ ok: ok, a: q.a, ja: q.ja });
+  // 解説：文型＋各かたまりの役割（S/V/O/C/副詞）の色分け図＋和訳
+  const ex = document.getElementById('arr-explain');
+  document.getElementById('arr-explain-lbl').textContent = ok ? '✅ 正解！' : '❌ 正しい語順';
+  const info = SENT2[q.a];
+  const target = document.getElementById('arr-explain-text');
+  if (info) {
+    target.innerHTML = '<div class="exp-head">' + escapeHtml(info[0]) + '　' + escapeHtml(q.a) + '</div>' + bdHtml(info);
+  } else {
+    // 予備：roles があれば簡易表示
+    let h = q.pat ? '<div class="exp-head">' + escapeHtml(q.pat) + '　' + escapeHtml(q.a) + '</div>' : '<div class="exp-head">' + escapeHtml(q.a) + '</div>';
+    if (q.roles && q.roles.length === q.order.length) {
+      h += '<div class="bd-row">' + q.order.map((w, i) =>
+        '<div class="bd-col ' + roleCls(q.roles[i]) + '"><div class="bd-en">' + escapeHtml(w) + '</div><div class="bd-role">' + roleLbl(q.roles[i]) + '</div></div>'
+      ).join('') + '</div>';
+    }
+    h += '<div class="exp-ja">和訳：「' + escapeHtml(q.ja) + '」</div>';
+    target.innerHTML = h;
+  }
+  ex.className = 'explain show ' + (ok ? 'ok' : 'ng');
+  document.getElementById('arr-check').disabled = true;
+  document.getElementById('arr-clear').style.display = 'none';
+  document.getElementById('arr-check').style.display = 'none';
+  const nx = document.getElementById('arr-next');
+  nx.textContent = (AQ.idx === AQ.questions.length - 1) ? '結果を見る →' : '次へ →';
+  nx.classList.add('show');
+  setTimeout(() => { try { ex.scrollIntoView({ behavior:'smooth', block:'center' }); } catch(e) {} }, 80);
+}
+function arrNext() {
+  if (AQ.idx < AQ.questions.length - 1) { AQ.idx++; renderArrange(); }
+  else arrResult();
+}
+function arrResult() {
+  const total = AQ.questions.length, correct = AQ.review.filter(r => r.ok).length;
+  const pct = Math.round(correct / total * 100);
+  if (correct === total) { sndDone(); sndFanfare(); }
+  const rank = pct === 100 ? 'S' : pct >= 80 ? 'A' : pct >= 60 ? 'B' : pct >= 40 ? 'C' : 'D';
+  showModal(`結果　ランク ${rank}`,
+    `${total} 問中 <b>${correct}</b> 問正解（${pct}%）<br>最大コンボ ${AQ.maxCombo}`,
+    [
+      { label:'↻ もう一度', primary:true, action:() => startArrange(AQ.deckId, total) },
+      { label:'× 一覧へ', primary:false, action:() => goTo('decks') },
+    ]);
+}
+function quitArrange() {
+  showConfirm('クイズをやめますか？', 'ここまでの記録は保存されません。', 'やめる', '続ける', () => { AQ = null; goTo('decks'); });
 }
 
 // ══════ DECK LIST ══════
@@ -1940,7 +2179,8 @@ function renderDeckList() {
   });
   const renderSection = (icon, title, sub, list, isOther, secKey) => {
     const key = 'fold_' + (secKey || title);
-    let collapsed = false; try { collapsed = localStorage.getItem(key) === '1'; } catch(e) {}
+    // 初期状態は「畳む」。過去に開いた（'0'を保存した）ものだけ開く
+    let collapsed = true; try { collapsed = localStorage.getItem(key) !== '0'; } catch(e) {}
     const head = document.createElement('div');
     head.className = 'deck-sec-head' + (collapsed ? ' collapsed' : '');
     head.innerHTML = `<span class="deck-sec-caret">▾</span><span class="deck-sec-icon">${icon}</span><span class="deck-sec-title">${escapeHtml(title)}</span><span class="deck-sec-count">${list.length}</span>${sub ? `<span class="deck-sec-sub">${escapeHtml(sub)}</span>` : ''}`;
@@ -2232,15 +2472,22 @@ function openCountDialog(id, pool) {
     box.appendChild(btn);
   });
   // アンチョコ対応デッキのときだけ、やさしいモードのチェックを出す
+  const isArr = deck.mode === 'arrange';
   const row = document.getElementById('cheat-toggle-row');
-  if (row) row.style.display = (deck.cheatsheet && deck.cheatsheet.length) ? 'flex' : 'none';
+  if (row) row.style.display = (!isArr && deck.cheatsheet && deck.cheatsheet.length) ? 'flex' : 'none';
   const tt = document.getElementById('timer-toggle');
   if (tt) { let on = true; try { on = localStorage.getItem('choice_timer') !== '0'; } catch(e) {} tt.checked = on; }
+  const trow = document.getElementById('timer-toggle-row'); if (trow) trow.style.display = isArr ? 'none' : 'flex';
+  // 並べ替えは難易度を使わないので隠す
+  const diffWrap = document.getElementById('diff-btns'); const diffDesc = document.getElementById('diff-desc');
+  [diffWrap, diffDesc].forEach(el => { if (el) el.style.display = isArr ? 'none' : ''; });
+  document.querySelectorAll('#ov-count .dlg-label-diff').forEach(el => el.style.display = isArr ? 'none' : '');
   openOv('ov-count');
 }
 function startFromPool(count) {
   const p = _pendingPool; if (!p) return;
   const deck = deckById(p.deckId); if (!deck) return;
+  if (deck.mode === 'arrange') { startArrange(deck.id, count || (p.cards ? p.cards.length : deck.cards.length)); return; }
   const cheatOn = !!(document.getElementById('cheat-toggle') && document.getElementById('cheat-toggle').checked);
   const tt = document.getElementById('timer-toggle');
   const timed = tt ? tt.checked : true;
@@ -2329,38 +2576,14 @@ function startQuiz(deckId, count, diffKey, cheatOn, timed) {
 // 指定したカード集合でクイズを開始（通常出題・復習モード共通）
 function cheatHtml() {
   return `
-  <div class="cheat-steps"><b>見分ける手順</b><br>
-  ① まず <span class="c-v">動詞(V)</span> を見つける<br>
-  ② V の後ろが無い／<span class="c-m">副詞(M)</span>だけ → <b>第1文型 SV</b><br>
-  ③ V の後ろが主語の説明（<span class="c-s">S</span>＝<span class="c-c">C</span>。be / become / look など）→ <b>第2文型 SVC</b><br>
-  ④ V の後ろに「〜を」の <span class="c-o">目的語(O)</span> が1つ → <b>第3文型 SVO</b><br>
-  ⑤ 目的語が2つ（人＋物）→ <b>第4文型 SVOO</b><br>
-  ⑥ 目的語＋その説明（<span class="c-o">O</span>＝<span class="c-c">C</span>）→ <b>第5文型 SVOC</b></div>
-  <div class="cheat-sec">
-    <div class="cheat-h"><span class="c-s">S 主語</span><span class="cheat-mean"> ＝「〜は、〜が」（一番最初の名詞）</span></div>
-    <div class="cheat-w"><span class="lab">代名詞</span><span class="c-s">I</span>(私は) ／ <span class="c-s">you</span>(あなたは) ／ <span class="c-s">he</span>/<span class="c-s">she</span>/<span class="c-s">it</span>(彼/彼女/それは) ／ <span class="c-s">they</span>(彼らは) ／ <span class="c-s">we</span>(私たちは)</div>
-    <div class="cheat-w"><span class="lab">名詞</span>Tom ／ my mother ／ the book …（人や物の名前）</div>
-  </div>
-  <div class="cheat-sec">
-    <div class="cheat-h"><span class="c-v">V 動詞</span><span class="cheat-mean"> ＝「〜する、〜である」（動作や状態）</span></div>
-    <div class="cheat-w"><span class="lab">be動詞</span><span class="c-v">is</span> ／ <span class="c-v">am</span> ／ <span class="c-v">are</span> ／ <span class="c-v">was</span> ／ <span class="c-v">were</span></div>
-    <div class="cheat-w"><span class="lab">一般動詞</span><span class="c-v">play</span>(する) ／ <span class="c-v">like</span>(好む) ／ <span class="c-v">make</span>(作る) ／ <span class="c-v">go</span>(行く) ／ <span class="c-v">have</span>(持っている)</div>
-  </div>
-  <div class="cheat-sec">
-    <div class="cheat-h"><span class="c-o">O 目的語</span><span class="cheat-mean"> ＝「〜を、〜に」（動詞のターゲットになる名詞）</span></div>
-    <div class="cheat-w"><span class="lab">目的格</span><span class="c-o">me</span>(私を/に) ／ <span class="c-o">you</span>(あなたを/に) ／ <span class="c-o">him</span>/<span class="c-o">her</span>(彼を/彼女を) ／ <span class="c-o">us</span>(私たちを) ／ <span class="c-o">them</span>(彼らを)</div>
-    <div class="cheat-w"><span class="lab">名詞</span>tennis ／ a present …（動作の対象になる名詞）</div>
-  </div>
-  <div class="cheat-sec">
-    <div class="cheat-h"><span class="c-c">C 補語</span><span class="cheat-mean"> ＝「〜の状態だ、〜という説明」（S や O の説明）</span></div>
-    <div class="cheat-w"><span class="lab">形容詞</span><span class="c-c">happy</span>(幸せな) ／ <span class="c-c">sad</span>(悲しい) ／ <span class="c-c">beautiful</span>(美しい) ／ <span class="c-c">kind</span>(親切な) ／ <span class="c-c">easy</span>(簡単な)</div>
-    <div class="cheat-w"><span class="lab">名詞</span><span class="c-c">a doctor</span>(医者) ／ <span class="c-c">a student</span>(学生) ／ <span class="c-c">Bob</span>(ボブ)（正体や職業）</div>
-  </div>
-  <div class="cheat-sec">
-    <div class="cheat-h"><span class="c-m">M 副詞</span><span class="cheat-mean"> ＝「いつ・どこで・なぜ・どのように」（消しても意味が通じるおまけ）</span></div>
-    <div class="cheat-w"><span class="lab">副詞(1語)</span><span class="c-m">always</span>(いつも) ／ <span class="c-m">very</span>(とても) ／ <span class="c-m">quickly</span>(素早く) ／ <span class="c-m">yesterday</span>(昨日) ／ <span class="c-m">today</span>(今日) ／ <span class="c-m">here</span>(ここで)</div>
-    <div class="cheat-w"><span class="lab">前置詞+名詞</span><span class="c-m">in the park</span>(公園で) ／ <span class="c-m">at school</span>(学校で)</div>
-  </div>`;
+  <div class="cheat-steps"><b>見分ける手順（上から順に）</b>
+  <div>① 動詞の後ろが無い／<span class="c-m">副詞</span>だけ → <b>SV</b>　② 主語の説明（<span class="c-s">S</span>＝<span class="c-c">C</span>：be/look）→ <b>SVC</b></div>
+  <div>③「〜を」が1つ → <b>SVO</b>　④ 目的語が2つ(人+物) → <b>SVOO</b>　⑤ 目的語+説明(<span class="c-o">O</span>＝<span class="c-c">C</span>) → <b>SVOC</b></div></div>
+  <div class="cheat-role"><span class="c-s">S 主語</span><span class="cheat-mean">〜は/〜が</span><span class="cheat-ex"><span class="c-s">I</span>・<span class="c-s">you</span>・<span class="c-s">he</span>・Tom・the book</span></div>
+  <div class="cheat-role"><span class="c-v">V 動詞</span><span class="cheat-mean">〜する/〜である</span><span class="cheat-ex"><span class="c-v">is</span>・<span class="c-v">become</span>・<span class="c-v">play</span>・<span class="c-v">go</span>・<span class="c-v">have</span></span></div>
+  <div class="cheat-role"><span class="c-o">O 目的語</span><span class="cheat-mean">〜を/〜に</span><span class="cheat-ex"><span class="c-o">me</span>・<span class="c-o">him</span>・tennis・a present</span></div>
+  <div class="cheat-role"><span class="c-c">C 補語</span><span class="cheat-mean">S・Oの説明</span><span class="cheat-ex"><span class="c-c">happy</span>・<span class="c-c">kind</span>・a doctor・a student</span></div>
+  <div class="cheat-role"><span class="c-m">M 副詞</span><span class="cheat-mean">いつ/どこで/どう（省いてOK）</span><span class="cheat-ex"><span class="c-m">very</span>・<span class="c-m">today</span>・in the park</span></div>`;
 }
 function _launchQuiz(deck, cards, diffKey, title, cheatOn, timed) {
   const diff = DIFFS[diffKey || currentDifficulty] || DIFFS.normal;
@@ -2833,6 +3056,147 @@ function updateMuteBtn() {
   if (b) b.textContent = (Q && Q.muted) ? '🔇' : '🔊';
 }
 
+// ══════ 作業用BGM（Web Audioでやさしいアンビエントを生成）══════
+let _bgm = null; // ローファイBGM（Web Audio生成）
+function _bgmVol() { let v = 40; try { const s = localStorage.getItem('choice_bgm_vol'); if (s !== null) v = parseInt(s,10); } catch(e) {} return isNaN(v) ? 40 : v; }
+// 音名 → 周波数
+function _nf(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+function startBgm() {
+  const c = ac(); if (!c || _bgm) return;
+  if (c.state === 'suspended') { try { c.resume(); } catch(e) {} }
+
+  // マスター（明るめの質感：ローパスは高めに開く＋控えめ音量）
+  const master = c.createGain();
+  master.gain.value = (_bgmVol() / 100) * 0.5;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200; lp.Q.value = 0.3;
+  master.connect(lp); lp.connect(c.destination);
+
+  // レコードのパチパチ（バイナルノイズ）：明るい曲調なので控えめに
+  const nbuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+  const nd = nbuf.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * (Math.random() < 0.015 ? 1 : 0.1);
+  const noise = c.createBufferSource(); noise.buffer = nbuf; noise.loop = true;
+  const nhp = c.createBiquadFilter(); nhp.type = 'highpass'; nhp.frequency.value = 1400;
+  const ng = c.createGain(); ng.gain.value = 0.03;
+  noise.connect(nhp); nhp.connect(ng); ng.connect(master); noise.start();
+
+  // やわらかいパッド（三角波＋ゆらぎ）で和音を鳴らす
+  const padGain = c.createGain(); padGain.gain.value = 0.0; padGain.connect(master);
+  const padOscs = [0,1,2].map(() => { const o = c.createOscillator(); o.type = 'triangle'; o.connect(padGain); o.start(); return o; });
+  padGain.gain.setValueAtTime(0.0001, c.currentTime);
+  padGain.gain.exponentialRampToValueAtTime(0.09, c.currentTime + 2.0);
+  // ゆっくりした揺らぎ
+  const vibr = c.createOscillator(), vibrG = c.createGain();
+  vibr.frequency.value = 0.14; vibrG.gain.value = 4; vibr.connect(vibrG);
+  padOscs.forEach(o => vibrG.connect(o.detune)); vibr.start();
+
+  // 明るいベル（木琴風の短い音）：メロディやアクセントに使う
+  const bell = (t, midi, vol) => {
+    const o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o2.type = 'sine';
+    o.frequency.value = _nf(midi); o2.frequency.value = _nf(midi + 12); // オクターブ上を薄く重ねて煌めき
+    const g2 = c.createGain(); g2.gain.value = 0.35; o2.connect(g2); g2.connect(g);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.14, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    o.connect(g); g.connect(master); o.start(t); o2.start(t); o.stop(t + 0.55); o2.stop(t + 0.55);
+  };
+
+  // ドラム音（キック・ハイハット）
+  const kick = (t) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.25);
+  };
+  const hat = (t, vol) => {
+    const s = c.createBufferSource(); s.buffer = nbuf;
+    const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol||0.12, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    s.connect(hp); hp.connect(g); g.connect(master); s.start(t); s.stop(t + 0.08);
+  };
+
+  // コード進行（明るいメジャーの王道：C - Am - F - G）ルート(MIDI)
+  const prog = [
+    [60, 64, 67, 72],  // C   （ド・ミ・ソ・ド）
+    [57, 60, 64, 69],  // Am  （ラ・ド・ミ・ラ）
+    [53, 57, 60, 65],  // F   （ファ・ラ・ド・ファ）
+    [55, 59, 62, 67],  // G   （ソ・シ・レ・ソ）
+  ];
+  // 各コードで鳴らす軽やかなメロディ音（明るい上の音）
+  const melody = [
+    [72, 76, 79, 76],  // C: ド ミ ソ ミ
+    [69, 72, 76, 72],  // Am: ラ ド ミ ド
+    [72, 77, 81, 77],  // F: ド ファ ラ ファ
+    [74, 79, 83, 79],  // G: レ ソ シ ソ
+  ];
+  let bar = 0;
+  const setChord = (notes) => {
+    padOscs.forEach((o, i) => { const f = _nf(notes[i % notes.length] - 12); o.frequency.setTargetAtTime(f, c.currentTime, 0.08); });
+  };
+  setChord(prog[0]);
+
+  // テンポ（ゆったり明るめ）：1拍 = beat 秒、1小節4拍
+  const beat = 0.6; // ≒100BPM
+  let step = 0; // 8分音符ステップ
+  const startAt = c.currentTime + 0.1;
+  const t0ref = { t: startAt };
+  const tick = () => {
+    const now = c.currentTime;
+    // 先読みで数ステップ分の音を予約
+    while (t0ref.t < now + 0.3) {
+      const t = t0ref.t, s = step % 8;            // 1小節=8ステップ（8分音符）
+      const bi = bar % prog.length;
+      if (s === 0) { setChord(prog[bi]); }
+      if (s === 0 || s === 4) kick(t);             // 1・3拍にキック
+      hat(t, s % 2 === 0 ? 0.08 : 0.13);           // 裏を少し強めのハイハット
+      // 明るいベルのメロディ（各拍の頭で1音ずつ）
+      if (s % 2 === 0) { const mi = melody[bi][(s / 2) % 4]; bell(t, mi, 0.12); }
+      if (s === 7) bar++;                           // 小節の終わりで次のコードへ
+      t0ref.t += beat / 2;                         // 8分音符
+      step++;
+    }
+  };
+  const timer = setInterval(tick, 60);
+  tick();
+
+  _bgm = { master, padGain, padOscs, vibr, noise, timer };
+  const btn = document.getElementById('bgm-btn'); if (btn) btn.classList.add('on');
+  try { localStorage.setItem('choice_bgm', '1'); } catch(e) {}
+}
+function stopBgm() {
+  if (!_bgm) return;
+  const c = ac(), nodes = _bgm;
+  clearInterval(nodes.timer);
+  try {
+    nodes.master.gain.cancelScheduledValues(c.currentTime);
+    nodes.master.gain.setValueAtTime(nodes.master.gain.value, c.currentTime);
+    nodes.master.gain.linearRampToValueAtTime(0.0001, c.currentTime + 1.0); // フェードアウト
+    setTimeout(() => { try { nodes.padOscs.forEach(o => o.stop()); nodes.vibr.stop(); nodes.noise.stop(); } catch(e) {} }, 1200);
+  } catch(e) {}
+  _bgm = null;
+  const btn = document.getElementById('bgm-btn'); if (btn) btn.classList.remove('on');
+  try { localStorage.setItem('choice_bgm', '0'); } catch(e) {}
+}
+function toggleBgm() { if (_bgm) stopBgm(); else startBgm(); }
+function setBgmVolume(v) {
+  try { localStorage.setItem('choice_bgm_vol', String(v)); } catch(e) {}
+  if (_bgm) { const c = ac(); _bgm.master.gain.setTargetAtTime((v/100)*0.5, c.currentTime, 0.1); }
+}
+function initBgmUI() {
+  const vol = document.getElementById('bgm-vol'); if (vol) vol.value = _bgmVol();
+  // 自動再生はブラウザに止められるため、前回ONでも最初のタップで鳴らす
+  let want = false; try { want = localStorage.getItem('choice_bgm') === '1'; } catch(e) {}
+  if (want) {
+    const kick = () => { startBgm(); document.removeEventListener('pointerdown', kick); };
+    document.addEventListener('pointerdown', kick, { once:true });
+  }
+}
+
+
 // ══════ MODAL（confirm/alert）══════
 function showModal(title, body, buttons) {
   document.getElementById('modal-title').textContent = title;
@@ -2880,8 +3244,11 @@ document.getElementById('inp-blines').addEventListener('input', updateBulkPrevie
   ensureLevel3Decks();
   ensureLevel4Decks();
   ensureLevel5Decks();
+  ensureEiken3Decks();
+  ensureEiken2Decks();
   ensureGrammar5Decks();
   goTo('cover');
+  initBgmUI();
 })();
 </script>
 </body>
