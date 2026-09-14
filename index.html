@@ -618,6 +618,11 @@ const LS_KEY = 'choice_v1';
 let decks = [];
 let _nextDid = 1, _nextCid = 1;
 
+// ── 苦手問題：卒業に必要な「連続でなくてよい正解回数」──
+// 間違えると need = CLEAR_TARGET にリセットされ、正解のたびに need を1ずつ減らす。
+// need が 0 になって初めて苦手から卒業。数字を変えれば厳しさを調整できます。
+const CLEAR_TARGET = 3;
+
 // ── 永続化：IndexedDB＋localStorageミラー（CONNECTと同方式）──
 const IDB_NAME = 'choice-db', IDB_STORE = 'kv';
 let _idb = null;
@@ -667,7 +672,15 @@ function _apply(d) {
   decks.forEach(dk => {
     dk.cards = dk.cards || [];
     dk.clears = dk.clears || [];
-    dk.cards.forEach(c => { c.ds = c.ds || []; c.mastered = c.mastered || false; c.miss = c.miss || 0; });
+    dk.cards.forEach(c => {
+      c.ds = c.ds || [];
+      c.mastered = c.mastered || false;
+      c.miss = c.miss || 0; // 旧フィールド（後方互換のため残す）
+      // wrongTotal＝累計ミス回数（減らない）。旧データは miss を初期値として引き継ぐ
+      c.wrongTotal = (c.wrongTotal != null) ? c.wrongTotal : (c.miss || 0);
+      // need＝卒業までに必要な残り正解回数。旧データで苦手(miss>0)だったものは満タンから
+      c.need = (c.need != null) ? c.need : ((c.miss || 0) > 0 ? CLEAR_TARGET : 0);
+    });
   });
 }
 async function load() {
@@ -830,19 +843,6 @@ const WORDS_L1 = [
   ['member','（集団の）一員'], ['number','数、番号'], ['scientist','科学者'], ['believe','（〜を）信じる'],
   ['wonderful','すばらしい'], ['volunteer','ボランティア'], ['doctor','医者、博士'],
 ];
-const L1_EJ_NAME = '中学英語L1 英→日';
-const L1_JE_NAME = '中学英語L1 日→英';
-function ensureLevel1Decks() {
-  const mkEJ = () => WORDS_L1.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
-  const mkJE = () => WORDS_L1.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
-  const ej = decks.find(d => d.name === L1_EJ_NAME);
-  if (!ej) { const d = createDeck(L1_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length !== WORDS_L1.length) { ej.cards = mkEJ(); }
-  const je = decks.find(d => d.name === L1_JE_NAME);
-  if (!je) { const d = createDeck(L1_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length !== WORDS_L1.length) { je.cards = mkJE(); }
-  save();
-}
 
 const WORDS_L2 = [
   ['energy','力、エネルギー'], ['message','伝言、メッセージ'], ['reason','理由'], ['chance','機会'],
@@ -861,19 +861,6 @@ const WORDS_L2 = [
   ['spend','（金銭）を使う、（時間）を過ごす'], ['forget','（〜を）忘れる'], ['continue','〜を続ける、続く'], ['share','〜を共有する、〜を分け合う'],
   ['return','〜を返す、帰る'], ['exciting','興奮させる、わくわくさせる'], ['follow','〜のあとについて行く、〜にしたがう'], ['collect','〜を集める'],
 ];
-const L2_EJ_NAME = '中学英語L2 英→日';
-const L2_JE_NAME = '中学英語L2 日→英';
-function ensureLevel2Decks() {
-  const mkEJ = () => WORDS_L2.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
-  const mkJE = () => WORDS_L2.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
-  const ej = decks.find(d => d.name === L2_EJ_NAME);
-  if (!ej) { const d = createDeck(L2_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length !== WORDS_L2.length) { ej.cards = mkEJ(); }
-  const je = decks.find(d => d.name === L2_JE_NAME);
-  if (!je) { const d = createDeck(L2_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length !== WORDS_L2.length) { je.cards = mkJE(); }
-  save();
-}
 
 const WORDS_L3 = [
   ['advice','忠告、アドバイス'], ['skill','技能、技術'], ['common','共通の、ふつうの'], ['delicious','おいしい'],
@@ -889,19 +876,6 @@ const WORDS_L3 = [
   ['moment','瞬間、ちょっとの間'], ['researcher','調査員、研究者'], ['staff','職員、スタッフ'], ['active','活動的な、活発な'],
   ['matter','問題、事がら'], ['artist','芸術家'], ['terrible','恐ろしい、ひどい'], ['raise','〜を上げる、〜を育てる'],
 ];
-const L3_EJ_NAME = '中学英語L3 英→日';
-const L3_JE_NAME = '中学英語L3 日→英';
-function ensureLevel3Decks() {
-  const mkEJ = () => WORDS_L3.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
-  const mkJE = () => WORDS_L3.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
-  const ej = decks.find(d => d.name === L3_EJ_NAME);
-  if (!ej) { const d = createDeck(L3_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length !== WORDS_L3.length) { ej.cards = mkEJ(); }
-  const je = decks.find(d => d.name === L3_JE_NAME);
-  if (!je) { const d = createDeck(L3_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length !== WORDS_L3.length) { je.cards = mkJE(); }
-  save();
-}
 
 const WORDS_L4 = [
   ['connect','〜をつなぐ'], ['invent','〜を発明する'], ['modern','現代の、現代的な'], ['certain','確信して、確かな'],
@@ -920,19 +894,6 @@ const WORDS_L4 = [
   ['powerful','強力な'], ['regular','規則正しい、いつもの'], ['balance','つりあい'], ['success','成功'],
   ['development','発展、開発'], ['original','もとの、独創的な、原作'], ['apply','申しこむ、応募する'], ['creative','創造的な、独創的な'],
 ];
-const L4_EJ_NAME = '中学英語L4 英→日';
-const L4_JE_NAME = '中学英語L4 日→英';
-function ensureLevel4Decks() {
-  const mkEJ = () => WORDS_L4.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
-  const mkJE = () => WORDS_L4.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
-  const ej = decks.find(d => d.name === L4_EJ_NAME);
-  if (!ej) { const d = createDeck(L4_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length !== WORDS_L4.length) { ej.cards = mkEJ(); }
-  const je = decks.find(d => d.name === L4_JE_NAME);
-  if (!je) { const d = createDeck(L4_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length !== WORDS_L4.length) { je.cards = mkJE(); }
-  save();
-}
 
 const WORDS_L5 = [
   ['compare','〜を比較する'], ['positive','積極的な、肯定的な'], ['succeed','成功する'], ['danger','危険'],
@@ -944,17 +905,28 @@ const WORDS_L5 = [
   ['industry','産業、工業'], ['recognize','〜とわかる、〜を認める'], ['effective','効果的な'], ['fail','失敗する、（試験など）に落ちる'],
   ['arrange','〜をきちんと整える、〜を取り決める'], ['designer','デザイナー'],
 ];
-const L5_EJ_NAME = '中学英語L5 英→日';
-const L5_JE_NAME = '中学英語L5 日→英';
-function ensureLevel5Decks() {
-  const mkEJ = () => WORDS_L5.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
-  const mkJE = () => WORDS_L5.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
-  const ej = decks.find(d => d.name === L5_EJ_NAME);
-  if (!ej) { const d = createDeck(L5_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
-  else if (ej.cards.length !== WORDS_L5.length) { ej.cards = mkEJ(); }
-  const je = decks.find(d => d.name === L5_JE_NAME);
-  if (!je) { const d = createDeck(L5_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
-  else if (je.cards.length !== WORDS_L5.length) { je.cards = mkJE(); }
+
+// ══════ 中学英単語（L1〜L5をまとめた総合デッキ）══════
+const WORDS_CHU = [].concat(WORDS_L1, WORDS_L2, WORDS_L3, WORDS_L4, WORDS_L5);
+const CHU_EJ_NAME = '中学英単語 英→日';
+const CHU_JE_NAME = '中学英単語 日→英';
+// 旧レベル別デッキ（L1〜L5）の名前。保存済みがあれば削除して1つにまとめる。
+const _OLD_LEVEL_NAMES = [
+  '中学英語L1 英→日','中学英語L1 日→英','中学英語L2 英→日','中学英語L2 日→英',
+  '中学英語L3 英→日','中学英語L3 日→英','中学英語L4 英→日','中学英語L4 日→英',
+  '中学英語L5 英→日','中学英語L5 日→英',
+];
+function ensureChuVocabDecks() {
+  // 旧レベル別デッキが残っていれば統合のため削除
+  decks = decks.filter(d => !_OLD_LEVEL_NAMES.includes(d.name));
+  const mkEJ = () => WORDS_CHU.map(w => ({ id:_nextCid++, q:w[0], a:w[1], ds:[] }));
+  const mkJE = () => WORDS_CHU.map(w => ({ id:_nextCid++, q:w[1], a:w[0], ds:[] }));
+  const ej = decks.find(d => d.name === CHU_EJ_NAME);
+  if (!ej) { const d = createDeck(CHU_EJ_NAME, '英単語を見て日本語の意味を4択で'); d.cards = mkEJ(); }
+  else if (ej.cards.length !== WORDS_CHU.length) { ej.cards = mkEJ(); }
+  const je = decks.find(d => d.name === CHU_JE_NAME);
+  if (!je) { const d = createDeck(CHU_JE_NAME, '日本語の意味から英単語を4択で'); d.cards = mkJE(); }
+  else if (je.cards.length !== WORDS_CHU.length) { je.cards = mkJE(); }
   save();
 }
 
@@ -2245,7 +2217,7 @@ function renderDeckList() {
   allFolders().forEach(name => renderSection('📁', name, '自分のフォルダ', foldered[name], false, 'folder_' + name));
   // 2) 未分類の組み込みカテゴリ
   const sections = [
-    { key:'vocab',   icon:'📚', title:'英単語（レベル別）', sub:'中学英単語1800 を 英→日 / 日→英 で' },
+    { key:'vocab',   icon:'📚', title:'英単語', sub:'中学英単語 を 英→日 / 日→英 で' },
     { key:'grammar', icon:'🧩', title:'文法・5文型',        sub:'文型の判別・穴埋め・要素分解つき' },
     { key:'other',   icon:'🗂', title:'その他・自作',        sub:'フォルダ未分類のデッキ' },
   ];
@@ -2296,7 +2268,7 @@ function renderDetail() {
         <div class="donut-wrap" title="攻略率">${donutSvg(ms.pct, 120, 12)}</div>
         <div class="detail-summary-info">
           <h4>攻略率 ${ms.pct}%</h4>
-          <p>攻略済み <span class="ms-num">${ms.done}</span> / 全 ${ms.total} 問　·　苦手 <span style="color:var(--ng);font-weight:700">${weakN}</span> 語<br>※一度でも正解すると攻略済み。間違えると苦手度が上がり、正解で下がります</p>
+          <p>攻略済み <span class="ms-num">${ms.done}</span> / 全 ${ms.total} 問　·　苦手 <span style="color:var(--ng);font-weight:700">${weakN}</span> 語<br>※一度でも正解すると攻略済み。間違えると苦手に登録され、正解を${CLEAR_TARGET}回ためて卒業（途中で間違えるとやり直し）</p>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${btns.join('')}</div>
         </div>
       </div>`);
@@ -2530,8 +2502,8 @@ function startFromPool(count) {
   const timed = tt ? tt.checked : true;
   try { localStorage.setItem('choice_timer', timed ? '1' : '0'); } catch(e) {}
   let cards = p.cards.slice();
-  if (p.hardest) { // 苦手：間違いの多い順に上位を取り、出す順はシャッフル
-    cards.sort((a, b) => (b.miss || 0) - (a.miss || 0));
+  if (p.hardest) { // 苦手：累計ミスの多い順に上位を取り、出す順はシャッフル
+    cards.sort((a, b) => (b.wrongTotal || 0) - (a.wrongTotal || 0));
     cards = cards.slice(0, count || cards.length);
     _shuffle(cards);
   } else {
@@ -2540,8 +2512,8 @@ function startFromPool(count) {
   }
   _launchQuiz(deck, cards, currentDifficulty, p.title, cheatOn, timed);
 }
-// 苦手（miss>0）だけを出題
-function weakCards(deck) { return deck.cards.filter(c => (c.miss || 0) > 0); }
+// 苦手（まだ卒業していない＝need>0）だけを出題
+function weakCards(deck) { return deck.cards.filter(c => (c.need || 0) > 0); }
 function openWeak(id) {
   const deck = deckById(id); if (!deck) return;
   const weak = weakCards(deck);
@@ -2550,29 +2522,40 @@ function openWeak(id) {
 }
 function resetWeak(id) {
   const deck = deckById(id); if (!deck) return;
-  showConfirm('苦手をリセット', 'このデッキの苦手度をすべて0に戻します。問題自体は消えません。', 'リセットする', 'キャンセル', () => {
-    deck.cards.forEach(c => c.miss = 0);
+  showConfirm('苦手をリセット', 'このデッキの苦手登録と、累計ミス回数（棒グラフ）をすべて0に戻します。問題自体は消えません。', 'リセットする', 'キャンセル', () => {
+    deck.cards.forEach(c => { c.need = 0; c.wrongTotal = 0; c.miss = 0; });
     save(); renderDetail();
   });
 }
-// 苦手ランキング（ミス回数の多い順に棒グラフで一覧）
+// 苦手ランキング（累計ミス回数の多い順に棒グラフで一覧）
 function renderWeakList(deck) {
-  const weak = weakCards(deck).slice().sort((a, b) => (b.miss || 0) - (a.miss || 0));
-  if (!weak.length) return '';
-  const max = weak[0].miss || 1;
-  const shown = weak.slice(0, 100);
+  // 一度でも間違えた問題（wrongTotal>0）をすべて対象に、累計ミスの多い順で表示
+  const list = deck.cards.filter(c => (c.wrongTotal || 0) > 0)
+                        .slice().sort((a, b) => (b.wrongTotal || 0) - (a.wrongTotal || 0));
+  if (!list.length) return '';
+  const max = list[0].wrongTotal || 1;
+  const shown = list.slice(0, 100);
   const rows = shown.map(c => {
-    const w = Math.max(6, Math.round((c.miss || 0) / max * 100));
+    const w = Math.max(6, Math.round((c.wrongTotal || 0) / max * 100));
+    const stillWeak = (c.need || 0) > 0;
+    // 卒業状況：あと◯回 / 卒業済み
+    const status = stillWeak
+      ? `<span style="color:var(--ng);">あと${c.need}回で卒業</span>`
+      : `<span style="color:var(--ok);">✓ 卒業</span>`;
+    const barColor = stillWeak ? 'var(--ng)' : 'var(--ok)';
     return `<div class="weak-row">
-      <div class="weak-main"><div class="weak-word">${escapeHtml(c.q)}</div><div class="weak-ans">${escapeHtml(c.a)}</div></div>
-      <div class="weak-bar-wrap"><div class="weak-bar" style="width:${w}%"></div></div>
-      <div class="weak-count">×${c.miss}</div>
+      <div class="weak-main">
+        <div class="weak-word">${escapeHtml(c.q)}</div>
+        <div class="weak-ans">${escapeHtml(c.a)}　·　${status}</div>
+      </div>
+      <div class="weak-bar-wrap"><div class="weak-bar" style="width:${w}%;background:${barColor};"></div></div>
+      <div class="weak-count">×${c.wrongTotal}</div>
     </div>`;
   }).join('');
-  const more = weak.length > shown.length ? `<p class="hint" style="margin-top:8px;">ほか ${weak.length - shown.length} 語（上位100件を表示）</p>` : '';
+  const more = list.length > shown.length ? `<p class="hint" style="margin-top:8px;">ほか ${list.length - shown.length} 語（上位100件を表示）</p>` : '';
   return `<div class="weak-list">
     <h4>苦手ランキング</h4>
-    <p class="hint">間違えた回数の多い順。バーの長さ＝ミス回数（正解すると減ります）</p>
+    <p class="hint">バーの長さ＝間違えた回数の合計（減りません）。正解を${CLEAR_TARGET}回ためると卒業。もう一度間違えると最初からやり直しです。</p>
     ${rows}${more}
   </div>`;
 }
@@ -2759,7 +2742,8 @@ function revealAnswer(chosenIdx, correct) {
     Q.combo++;
     Q.maxCombo = Math.max(Q.maxCombo, Q.combo);
     q.card.mastered = true; // 攻略済みとして記録
-    if (q.card.miss > 0) q.card.miss = Math.max(0, q.card.miss - 1); // 苦手度を下げる
+    // 苦手なら卒業に一歩近づける（累計ミス wrongTotal は減らさない）
+    if ((q.card.need || 0) > 0) q.card.need = Math.max(0, q.card.need - 1);
     save();
     sndCorrect();
     if (Q.combo >= 2) {
@@ -2779,7 +2763,8 @@ function revealAnswer(chosenIdx, correct) {
     sndWrong();
     document.getElementById('combo-banner').innerHTML = '';
     if (Q.wrongCards) Q.wrongCards.push(q.card); // 復習用に記録
-    q.card.miss = (q.card.miss || 0) + 1; // 苦手度を上げる
+    q.card.wrongTotal = (q.card.wrongTotal || 0) + 1; // 累計ミス回数（増える一方）
+    q.card.need = CLEAR_TARGET; // 卒業カウントを満タンに戻す（また複数回クリアが必要）
     save();
     // ── 派手演出：赤い発光＋画面が揺れる＋MISS ──
     fxFlash('rgba(224,49,49,.5)');
@@ -3276,11 +3261,7 @@ document.getElementById('inp-blines').addEventListener('input', updateBulkPrevie
   const loaded = await load();
   if (!loaded || !decks.length) initSampleDecks();
   ensureGobunkeiDeck();
-  ensureLevel1Decks();
-  ensureLevel2Decks();
-  ensureLevel3Decks();
-  ensureLevel4Decks();
-  ensureLevel5Decks();
+  ensureChuVocabDecks();
   ensureEiken3Decks();
   ensureEiken2Decks();
   ensureGrammar5Decks();
